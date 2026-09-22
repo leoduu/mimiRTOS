@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" font-family="Microsoft YaHei, PingFang SC, sans-serif">
+  <rect x="0" y="0" width="760" height="430" fill="#ffffff"/>
+
+  <!-- 标题 -->
+  <text x="140" y="38" font-size="17" font-weight="bold" fill="#222222">调度时序（时间片 10ms，截取 0~100ms）</text>
+
+  <!-- 行标签 -->
+  <text x="8" y="94" font-size="13" fill="#222222">high（优先级 1）</text>
+  <text x="8" y="164" font-size="13" fill="#222222">rr_a（优先级 2）</text>
+  <text x="8" y="234" font-size="13" fill="#222222">rr_b（优先级 2）</text>
+  <text x="8" y="304" font-size="13" fill="#222222">idle（优先级 31）</text>
+  <text x="8" y="364" font-size="13" fill="#222222">软件定时器</text>
+
+  <!-- 时间片边界虚线（每 10ms） -->
+  <g stroke="#cccccc" stroke-width="1" stroke-dasharray="3,3">
+    <line x1="190" y1="52" x2="190" y2="330"/>
+    <line x1="240" y1="52" x2="240" y2="330"/>
+    <line x1="290" y1="52" x2="290" y2="330"/>
+    <line x1="340" y1="52" x2="340" y2="330"/>
+    <line x1="390" y1="52" x2="390" y2="330"/>
+    <line x1="440" y1="52" x2="440" y2="330"/>
+    <line x1="490" y1="52" x2="490" y2="330"/>
+    <line x1="540" y1="52" x2="540" y2="330"/>
+    <line x1="590" y1="52" x2="590" y2="330"/>
+    <line x1="640" y1="52" x2="640" y2="330"/>
+  </g>
+
+  <!-- high：运行 [0,10]，其余 sleep -->
+  <rect x="140" y="72" width="50" height="40" rx="3" fill="#e67e22"/>
+  <rect x="190" y="72" width="450" height="40" rx="3" fill="#f0f0f0" stroke="#dddddd"/>
+  <text x="200" y="97" font-size="12" fill="#666666">sleep 500ms（期间 rr 轮转）</text>
+
+  <!-- rr_a 运行块：[10,20] [30,40] [50,60] [70,80] [90,100] -->
+  <g fill="#3498db">
+    <rect x="190" y="142" width="50" height="40" rx="3"/>
+    <rect x="290" y="142" width="50" height="40" rx="3"/>
+    <rect x="390" y="142" width="50" height="40" rx="3"/>
+    <rect x="490" y="142" width="50" height="40" rx="3"/>
+    <rect x="590" y="142" width="50" height="40" rx="3"/>
+  </g>
+
+  <!-- rr_b 运行块：[20,30] [40,50] [60,70] [80,90] -->
+  <g fill="#2ecc71">
+    <rect x="240" y="212" width="50" height="40" rx="3"/>
+    <rect x="340" y="212" width="50" height="40" rx="3"/>
+    <rect x="440" y="212" width="50" height="40" rx="3"/>
+    <rect x="540" y="212" width="50" height="40" rx="3"/>
+  </g>
+
+  <!-- idle：全程未运行 -->
+  <rect x="140" y="282" width="500" height="40" rx="3" fill="#fafafa" stroke="#e0e0e0"/>
+  <text x="150" y="307" font-size="12" fill="#999999">全程不运行：rr 永远就绪，idle 抢不到 CPU</text>
+
+  <!-- 软件定时器说明 -->
+  <text x="140" y="368" font-size="12" fill="#666666">每 1000 tick(1s) 触发一次，翻转 LED，与线程调度无关</text>
+
+  <!-- 时间轴刻度 -->
+  <g stroke="#333333" stroke-width="1">
+    <line x1="140" y1="380" x2="140" y2="388"/>
+    <line x1="190" y1="380" x2="190" y2="388"/>
+    <line x1="240" y1="380" x2="240" y2="388"/>
+    <line x1="290" y1="380" x2="290" y2="388"/>
+    <line x1="340" y1="380" x2="340" y2="388"/>
+    <line x1="390" y1="380" x2="390" y2="388"/>
+    <line x1="440" y1="380" x2="440" y2="388"/>
+    <line x1="490" y1="380" x2="490" y2="388"/>
+    <line x1="540" y1="380" x2="540" y2="388"/>
+    <line x1="590" y1="380" x2="590" y2="388"/>
+    <line x1="640" y1="380" x2="640" y2="388"/>
+  </g>
+  <g font-size="11" fill="#333333" text-anchor="middle">
+    <text x="140" y="403">0</text>
+    <text x="190" y="403">10</text>
+    <text x="240" y="403">20</text>
+    <text x="290" y="403">30</text>
+    <text x="340" y="403">40</text>
+    <text x="390" y="403">50</text>
+    <text x="440" y="403">60</text>
+    <text x="490" y="403">70</text>
+    <text x="540" y="403">80</text>
+    <text x="590" y="403">90</text>
+    <text x="640" y="403">100 ms</text>
+  </g>
+
+  <!-- 图例 -->
+  <g font-size="12" fill="#333333">
+    <rect x="470" y="414" width="14" height="14" rx="2" fill="#e67e22"/>
+    <text x="490" y="426">抢占(high)</text>
+    <rect x="560" y="414" width="14" height="14" rx="2" fill="#3498db"/>
+    <text x="580" y="426">rr_a</text>
+    <rect x="620" y="414" width="14" height="14" rx="2" fill="#2ecc71"/>
+    <text x="640" y="426">rr_b</text>
+  </g>
+</svg>

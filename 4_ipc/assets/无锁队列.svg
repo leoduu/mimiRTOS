@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 380" font-family="Microsoft YaHei, PingFang SC, sans-serif">
+  <rect x="0" y="0" width="760" height="380" fill="#ffffff"/>
+
+  <!-- 标题 -->
+  <text x="140" y="38" font-size="17" font-weight="bold" fill="#222222">无锁环形缓冲：prod_head / prod_tail / cons 三个指针</text>
+
+  <!-- 8 个槽位 -->
+  <!-- 空闲：0、1、7 -->
+  <rect x="150" y="150" width="56" height="56" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <rect x="210" y="150" width="56" height="56" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <rect x="570" y="150" width="56" height="56" fill="#ecf0f1" stroke="#bdc3c7"/>
+  <!-- 已提交可读：2、3、4 -->
+  <rect x="270" y="150" width="56" height="56" fill="#2ecc71"/>
+  <rect x="330" y="150" width="56" height="56" fill="#2ecc71"/>
+  <rect x="390" y="150" width="56" height="56" fill="#2ecc71"/>
+  <!-- 已占坑未提交：5、6 -->
+  <rect x="450" y="150" width="56" height="56" fill="#f1c40f"/>
+  <rect x="510" y="150" width="56" height="56" fill="#f1c40f"/>
+
+  <!-- 槽位编号 -->
+  <g font-size="13" text-anchor="middle">
+    <text x="178" y="183" fill="#999999">0</text>
+    <text x="238" y="183" fill="#999999">1</text>
+    <text x="298" y="183" fill="#ffffff">2</text>
+    <text x="358" y="183" fill="#ffffff">3</text>
+    <text x="418" y="183" fill="#ffffff">4</text>
+    <text x="478" y="183" fill="#333333">5</text>
+    <text x="538" y="183" fill="#333333">6</text>
+    <text x="598" y="183" fill="#999999">7</text>
+  </g>
+
+  <!-- 指针箭头 -->
+  <!-- cons -->
+  <line x1="270" y1="250" x2="270" y2="210" stroke="#e74c3c" stroke-width="2"/>
+  <polygon points="264,250 276,250 270,236" fill="#e74c3c"/>
+  <text x="270" y="272" font-size="13" fill="#e74c3c" text-anchor="middle" font-weight="bold">cons</text>
+  <text x="270" y="290" font-size="11" fill="#888888" text-anchor="middle">读指针</text>
+
+  <!-- prod_tail -->
+  <line x1="450" y1="250" x2="450" y2="210" stroke="#16a085" stroke-width="2"/>
+  <polygon points="444,250 456,250 450,236" fill="#16a085"/>
+  <text x="450" y="272" font-size="13" fill="#16a085" text-anchor="middle" font-weight="bold">prod_tail</text>
+  <text x="450" y="290" font-size="11" fill="#888888" text-anchor="middle">提交指针</text>
+
+  <!-- prod_head -->
+  <line x1="570" y1="250" x2="570" y2="210" stroke="#f39c12" stroke-width="2"/>
+  <polygon points="564,250 576,250 570,236" fill="#f39c12"/>
+  <text x="570" y="272" font-size="13" fill="#e67e22" text-anchor="middle" font-weight="bold">prod_head</text>
+  <text x="570" y="290" font-size="11" fill="#888888" text-anchor="middle">抢占指针</text>
+
+  <!-- 说明 -->
+  <text x="140" y="326" font-size="13" fill="#222222">消费者只读 prod_tail 之前（已提交）的数据；多个生产者用 CAS 抢 prod_head 往后写，写完再推进 prod_tail。</text>
+
+  <!-- 图例 -->
+  <g font-size="12" fill="#333333">
+    <rect x="380" y="352" width="14" height="14" rx="2" fill="#2ecc71"/>
+    <text x="400" y="364">已提交可读</text>
+    <rect x="480" y="352" width="14" height="14" rx="2" fill="#f1c40f"/>
+    <text x="500" y="364">已占坑未提交</text>
+    <rect x="600" y="352" width="14" height="14" rx="2" fill="#ecf0f1" stroke="#bdc3c7"/>
+    <text x="620" y="364">空闲（环绕）</text>
+  </g>
+</svg>
