@@ -2,7 +2,6 @@
 #define __MIMI_LOG__
 
 #include <stdint.h>
-#include <stdlib.h>
 #include <stddef.h>
 #include "mimi.h"
 #include "conf.h"
@@ -14,9 +13,9 @@ typedef void (*log_output_func)(const uint8_t *buffer, size_t len);
 
 void mimi_log_printf(char level, const char *fmt, ...);
 void mimi_log_kprintf(const char *fmt, ...);
+void mimi_log_print_raw(const char *fmt, ...);
 void mimi_log_init(void);
-void mimi_log_start(void);
-void mimi_log_set_output(log_output_func func);
+log_output_func mimi_log_output_func(void);
 
 #define MIMI_LOG(fmt, ...)    mimi_log_print_raw(fmt, ##__VA_ARGS__)
 
@@ -49,17 +48,5 @@ void mimi_log_set_output(log_output_func func);
 #else
 #define MIMI_LOG_E(...)
 #endif
-
-/* -------------------------------------------------------------------------- */
-/*  console                                                                   */
-/* -------------------------------------------------------------------------- */
-#if MIMI_CONSOLE
-
-typedef size_t (*console_input_func)(uint8_t *buffer, size_t len);
-
-void mimi_console_init(void);
-void mimi_console_set_input(console_input_func func);
-
-#endif // MIMI_CONSOLE
 
 #endif // __MIMI_LOG__

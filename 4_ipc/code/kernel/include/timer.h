@@ -12,7 +12,6 @@ typedef void (*timeout_handler)(struct mimi_timer *timer);
 typedef enum {
     MIMI_TIMER_RUNNING,
     MIMI_TIMER_STOP,
-    MIMI_TIMER_TIMEROUT,
 } mimi_timer_status;
 
 typedef enum {

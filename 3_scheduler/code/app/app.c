@@ -11,9 +11,8 @@
 #define STACK_SIZE  1024
 
 /* ==================== 时间片轮转（同级忙等） ====================
- * rr_a / rr_b 同级(2)，纯忙等，不 sleep 不 yield。
- * 靠时间片(默认 10ms)强制切换。每秒打印本轮计数，两者增长率
- * 应接近，证明时间片公平分配 CPU。
+ * rr_a / rr_b 同级(2)，靠时间片(默认 10ms)强制切换
+ * 每秒打印本轮计数，两者增长率应接近，证明时间片公平分配 CPU。
  */
 mimi_tcb rr_a_thread;
 uint8_t rr_a_stack[STACK_SIZE] mimi_aligned(8) = {0};
@@ -75,13 +74,6 @@ void heart_timeout(mimi_timer *timer)
 {
     HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 }
-
-/* ==================== 空闲线程（兜底） ====================
- * idle 由内核 mimi_sched_init 自建，优先级 31 最低，本用例不显式创建。
- * rr 永远就绪，idle 抢不到 CPU，这本身就是 idle 兜底性质的体现。
- * 想观察 idle 接管，把 rr_a/rr_b 入口换成 mimi_thread_delay(10000)，
- * 所有业务线程阻塞后系统仍稳定。
- */
 
 int app_init(void)
 {

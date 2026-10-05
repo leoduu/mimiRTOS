@@ -74,14 +74,21 @@ static void test_create_non_power_of_two(void)
     TEST_EXPECT_ASSERT(mimi_ringbuffer_create(0));
 }
 
-static void test_create_delete_cycle(void)
+static void test_create_capacity_bound(void)
 {
-    /* Repeated create/delete — no crash or leak (valgrind check) */
-    for (int i = 0; i < 10; i++) {
-        mimi_ringbuffer *r = mimi_ringbuffer_create(64);
-        TEST_ASSERT_NOT_NULL(r);
-        mimi_ringbuffer_delete(r);
-    }
+    mimi_ringbuffer *r = mimi_ringbuffer_create(MIMI_RB_CAPACITY_MAX);
+    TEST_ASSERT_NOT_NULL(r);
+    mimi_ringbuffer_delete(r);
+
+    TEST_EXPECT_ASSERT(mimi_ringbuffer_create(MIMI_RB_CAPACITY_MAX << 1));
+}
+
+static void test_init_capacity_bound(void)
+{
+    uint8_t buf[64];
+    mimi_ringbuffer ring;
+
+    TEST_EXPECT_ASSERT(mimi_ringbuffer_init(&ring, MIMI_RB_CAPACITY_MAX << 1, buf));
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,6 +157,24 @@ static void test_read_more_than_available(void)
     mimi_ringbuffer_delete(r);
 }
 
+static void test_read_len_exceeds_capacity(void)
+{
+    mimi_ringbuffer *r = mimi_ringbuffer_create(4);
+    TEST_ASSERT_NOT_NULL(r);
+
+    uint8_t in[4];
+    fill_pattern(in, 4, 0x30);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, in, 4));
+
+    uint8_t out[64];
+    TEST_ASSERT_EQUAL_UINT32(4, mimi_ringbuffer_read(r, out, 64));
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out, 4, 0x30));
+
+    TEST_ASSERT_EQUAL_UINT32(0, mimi_ringbuffer_read(r, out, 64));
+
+    mimi_ringbuffer_delete(r);
+}
+
 static void test_write_full_buffer(void)
 {
     mimi_ringbuffer *r = mimi_ringbuffer_create(64);
@@ -202,6 +227,64 @@ static void test_write_len_exceeds_capacity(void)
 /* ------------------------------------------------------------------ */
 /*  Wrap-around                                                        */
 /* ------------------------------------------------------------------ */
+
+static void test_multi_write_fills_exactly(void)
+{
+    mimi_ringbuffer *r = mimi_ringbuffer_create(8);
+    TEST_ASSERT_NOT_NULL(r);
+
+    uint8_t in[3];
+    fill_pattern(in, 3, 0x01);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, in, 3));
+
+    fill_pattern(in, 3, 0x04);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, in, 3));
+
+    uint8_t two[2];
+    fill_pattern(two, 2, 0x07);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, two, 2));
+
+    uint8_t one = 0xFF;
+    TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_ringbuffer_write(r, &one, 1));
+
+    uint8_t out[8];
+    TEST_ASSERT_EQUAL_UINT32(8, mimi_ringbuffer_read(r, out, 8));
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out,     3, 0x01));
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out + 3, 3, 0x04));
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out + 6, 2, 0x07));
+
+    mimi_ringbuffer_delete(r);
+}
+
+static void test_failed_write_preserves_data(void)
+{
+    mimi_ringbuffer *r = mimi_ringbuffer_create(8);
+    TEST_ASSERT_NOT_NULL(r);
+
+    uint8_t in[6];
+    fill_pattern(in, 6, 0x20);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, in, 6));
+
+    uint8_t too_big[4];
+    fill_pattern(too_big, 4, 0x90);
+    TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_ringbuffer_write(r, too_big, 4));
+
+    uint8_t one = 0x26;
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, &one, 1));
+
+    uint8_t two[2];
+    TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_ringbuffer_write(r, two, 2));
+
+    one = 0x27;
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, &one, 1));
+    TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_ringbuffer_write(r, &one, 1));
+
+    uint8_t out[8];
+    TEST_ASSERT_EQUAL_UINT32(8, mimi_ringbuffer_read(r, out, 8));
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out, 8, 0x20));
+
+    mimi_ringbuffer_delete(r);
+}
 
 static void test_write_wraparound(void)
 {
@@ -300,28 +383,6 @@ static void test_capacity_one_full_blocks(void)
 /* ------------------------------------------------------------------ */
 /*  Fill-drain cycles                                                  */
 /* ------------------------------------------------------------------ */
-
-static void test_fill_drain_cycles(void)
-{
-    mimi_ringbuffer *r = mimi_ringbuffer_create(64);
-    TEST_ASSERT_NOT_NULL(r);
-
-    uint8_t seed = 0;
-    for (int cycle = 0; cycle < 5; cycle++) {
-        /* Write varying amounts */
-        uint8_t in[64];
-        fill_pattern(in, 64, seed);
-        TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_ringbuffer_write(r, in, 64));
-
-        uint8_t out[64];
-        TEST_ASSERT_EQUAL_UINT32(64, mimi_ringbuffer_read(r, out, 64));
-        TEST_ASSERT_EQUAL_INT(MIMI_EOK, verify_pattern(out, 64, seed));
-
-        seed += 64;
-    }
-
-    mimi_ringbuffer_delete(r);
-}
 
 static void test_interleaved_write_read(void)
 {
@@ -703,19 +764,23 @@ int run_ringbuffer_tests(void)
     /* Creation */
     RUN_TEST(test_create_power_of_two);
     RUN_TEST(test_create_non_power_of_two);
-    RUN_TEST(test_create_delete_cycle);
+    RUN_TEST(test_create_capacity_bound);
 
     /* Static init */
     RUN_TEST(test_static_init);
     RUN_TEST(test_init_rejects_bad_args);
+    RUN_TEST(test_init_capacity_bound);
 
     /* Basic write/read */
     RUN_TEST(test_write_read_one);
     RUN_TEST(test_write_read_sequential);
     RUN_TEST(test_read_empty_fails);
     RUN_TEST(test_read_more_than_available);
+    RUN_TEST(test_read_len_exceeds_capacity);
     RUN_TEST(test_write_full_buffer);
     RUN_TEST(test_write_full_blocks_writer);
+    RUN_TEST(test_multi_write_fills_exactly);
+    RUN_TEST(test_failed_write_preserves_data);
     RUN_TEST(test_write_len_exceeds_capacity);
 
     /* NULL parameter defense */
@@ -730,7 +795,6 @@ int run_ringbuffer_tests(void)
     RUN_TEST(test_capacity_one_full_blocks);
 
     /* Fill-drain cycles */
-    RUN_TEST(test_fill_drain_cycles);
     RUN_TEST(test_interleaved_write_read);
     RUN_TEST(test_many_small_writes);
 

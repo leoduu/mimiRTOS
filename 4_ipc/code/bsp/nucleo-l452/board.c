@@ -56,9 +56,16 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
 /* ------------------------------------------------------------------ */
 int main(void);
 
-void mimi_board_init(void)
+static void interrupt_init(void)
+{
+    NVIC_SetPriority(SysTick_IRQn, 0x0E);
+    NVIC_SetPriority(PendSV_IRQn, 0x0F);    // lowest
+}
+
+int mimi_board_init(void)
 {
     main();
+    interrupt_init();
 
     mimi_sem_init(&dma_tx_sem, 1, 0);
     mimi_sem_init(&rx_sem, 1, 0);
@@ -66,6 +73,7 @@ void mimi_board_init(void)
     HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buf, sizeof(rx_buf));
 
     MIMI_LOG_I("nucleo-l452 load\r\n");
+    return MIMI_EOK;
 }
 
 /* ------------------------------------------------------------------ */
@@ -81,7 +89,7 @@ void log_output(const uint8_t *buffer, size_t len)
     }
 }
 
-log_output_func mimi_board_get_log_output_func(void)
+log_output_func mimi_log_output_func(void)
 {
     return log_output;
 }
@@ -89,6 +97,8 @@ log_output_func mimi_board_get_log_output_func(void)
 /* -------------------------------------------------------------------------- */
 /*  console input (DMA)                                                       */
 /* -------------------------------------------------------------------------- */
+#if MIMI_CONSOLE
+#include "console.h"
 
 size_t console_input(uint8_t *buffer, size_t max_len)
 {
@@ -99,7 +109,8 @@ size_t console_input(uint8_t *buffer, size_t max_len)
     return len;
 }
 
-console_input_func mimi_board_get_console_input_func(void)
+console_input_func mimi_console_input_func(void)
 {
     return console_input;
 }
+#endif // MIMI_CONSOLE

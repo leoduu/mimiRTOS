@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" font-family="Microsoft YaHei, PingFang SC, sans-serif">
-  <rect x="0" y="0" width="760" height="430" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 440" font-family="Microsoft YaHei, PingFang SC, sans-serif">
+  <rect x="0" y="0" width="760" height="440" fill="#ffffff"/>
 
   <!-- 标题 -->
   <text x="140" y="38" font-size="17" font-weight="bold" fill="#222222">调度时序（时间片 10ms，截取 0~100ms）</text>
@@ -49,7 +49,7 @@
 
   <!-- idle：全程未运行 -->
   <rect x="140" y="282" width="500" height="40" rx="3" fill="#fafafa" stroke="#e0e0e0"/>
-  <text x="150" y="307" font-size="12" fill="#999999">全程不运行：rr 永远就绪，idle 抢不到 CPU</text>
+  <text x="150" y="307" font-size="12" fill="#999999">全程不运行：idle 抢不到 CPU</text>
 
   <!-- 软件定时器说明 -->
   <text x="140" y="368" font-size="12" fill="#666666">每 1000 tick(1s) 触发一次，翻转 LED，与线程调度无关</text>

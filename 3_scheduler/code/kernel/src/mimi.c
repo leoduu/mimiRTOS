@@ -1,7 +1,7 @@
 
 
 #include "thread.h"
-#include "cpuport.h"
+#include "mimi_port.h"
 #include "sched.h"
 #include "conf.h"
 #include "mimi.h"
@@ -22,7 +22,6 @@ void mimi_sys_tick_handler(void)
     mimi_atom_add(&sys_tick, 1);
     mimi_timer_check();
     mimi_sched_tick_increase(1);
-    mimi_isr_schedule_check();
 }
 
 void mimi_component_init(void)
@@ -48,7 +47,6 @@ void mimi_main(void)
     mimi_disable_irq();
 
     mimi_board_init();
-
     mimi_cpu_init(OS_TICK_PER_SECOND, mimi_sys_tick_handler);
     mimi_sched_init();
 

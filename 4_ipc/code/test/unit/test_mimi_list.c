@@ -39,7 +39,8 @@ static void test_push_back_one(void)
     mimi_node *n1 = make_node();
     mimi_list_init(&list);
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_push_back(&list, n1));
+    mimi_list_push_back(&list, n1);
+
     TEST_ASSERT_EQUAL_PTR(n1, list.head);
     TEST_ASSERT_EQUAL_PTR(n1, n1->prev);
     TEST_ASSERT_EQUAL_PTR(n1, n1->next);
@@ -171,7 +172,7 @@ static void test_pop_front(void)
     mimi_list_push_back(&list, n1);
     mimi_list_push_back(&list, n2);
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_pop_front(&list));
+    TEST_ASSERT_EQUAL_PTR(n1, mimi_list_pop_front(&list));
     TEST_ASSERT_EQUAL_PTR(n2, list.head);
     TEST_ASSERT_NULL(n1->prev);
     TEST_ASSERT_NULL(n1->next);
@@ -179,9 +180,10 @@ static void test_pop_front(void)
     TEST_ASSERT_EQUAL_PTR(n2, n2->prev);
     TEST_ASSERT_EQUAL_PTR(n2, n2->next);
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_pop_front(&list));
+    TEST_ASSERT_EQUAL_PTR(n2, mimi_list_pop_front(&list));
     TEST_ASSERT_NULL(list.head);
     TEST_ASSERT_TRUE(mimi_list_empty(&list));
+    TEST_ASSERT_TRUE(mimi_node_isolated(n2));
 
     free(n1); free(n2);
 }
@@ -196,12 +198,13 @@ static void test_pop_back(void)
     mimi_list_push_back(&list, n1);
     mimi_list_push_back(&list, n2);
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_pop_back(&list));
+    TEST_ASSERT_EQUAL_PTR(n2, mimi_list_pop_back(&list));
     TEST_ASSERT_EQUAL_PTR(n1, list.head);
     TEST_ASSERT_EQUAL_PTR(n1, n1->prev);
     TEST_ASSERT_EQUAL_PTR(n1, n1->next);
+    TEST_ASSERT_TRUE(mimi_node_isolated(n2));
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_pop_back(&list));
+    TEST_ASSERT_EQUAL_PTR(n1, mimi_list_pop_back(&list));
     TEST_ASSERT_NULL(list.head);
 
     free(n1); free(n2);
@@ -260,7 +263,7 @@ static void test_reuse_after_empty(void)
 
     /* 清空后再次 push */
     mimi_node *n3 = make_node();
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_push_back(&list, n3));
+    mimi_list_push_back(&list, n3);
     TEST_ASSERT_EQUAL_PTR(n3, list.head);
     TEST_ASSERT_EQUAL_PTR(n3, n3->prev);
     TEST_ASSERT_EQUAL_PTR(n3, n3->next);
@@ -285,20 +288,20 @@ static void test_remove(void)
     mimi_list_push_back(&list, n3);
 
     /* 移除中间节点 n2 */
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_remove(&list, n2));
+    mimi_list_remove(&list, n2);
     TEST_ASSERT_TRUE(mimi_node_isolated(n2));
     TEST_ASSERT_EQUAL_PTR(n1, list.head);
     TEST_ASSERT_EQUAL_PTR(n3, n1->next);
     TEST_ASSERT_EQUAL_PTR(n1, n3->prev);
 
     /* 移除头节点 n1 */
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_remove(&list, n1));
+    mimi_list_remove(&list, n1);
     TEST_ASSERT_EQUAL_PTR(n3, list.head);
     TEST_ASSERT_EQUAL_PTR(n3, n3->prev);
     TEST_ASSERT_EQUAL_PTR(n3, n3->next);
 
     /* 移除最后一个节点 n3 */
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_remove(&list, n3));
+    mimi_list_remove(&list, n3);
     TEST_ASSERT_NULL(list.head);
 
     free(n1); free(n2); free(n3);
@@ -312,7 +315,7 @@ static void test_remove_single(void)
     mimi_node *n1 = make_node();
     mimi_list_push_back(&list, n1);
 
-    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_list_remove(&list, n1));
+    mimi_list_remove(&list, n1);
     TEST_ASSERT_NULL(list.head);
     TEST_ASSERT_TRUE(mimi_node_isolated(n1));
 
@@ -391,36 +394,6 @@ static void test_for_each_safe_remove_middle(void)
     TEST_ASSERT_EQUAL_PTR(n3, n1->next);
     TEST_ASSERT_EQUAL_PTR(n1, n3->prev);
 
-    free(n1); free(n2); free(n3);
-}
-
-static void test_for_each_safe_remove_self(void)
-{
-    mimi_list list;
-    mimi_list_init(&list);
-
-    mimi_node *n1 = make_node();
-    mimi_node *n2 = make_node();
-    mimi_node *n3 = make_node();
-    mimi_list_push_back(&list, n1);
-    mimi_list_push_back(&list, n2);
-    mimi_list_push_back(&list, n3);
-
-    /* 遍历时只移除中间节点，验证后续节点仍能正常访问 */
-    mimi_node *node;
-    mimi_node *tmp;
-    mimi_list_for_each_safe_start(&list, node, tmp) {
-        if (node == n2) {
-            mimi_list_remove(&list, node);
-        }
-    } mimi_list_for_each_safe_end(&list, node, tmp);
-
-    /* n2 被移除，剩余 n1 和 n3 应保持正确链接 */
-    TEST_ASSERT_EQUAL_PTR(n1, list.head);
-    TEST_ASSERT_EQUAL_PTR(n3, n1->next);
-    TEST_ASSERT_EQUAL_PTR(n1, n3->prev);
-
-    /* 补回 n2 清理内存 */
     free(n1); free(n2); free(n3);
 }
 
@@ -533,7 +506,6 @@ int run_list_tests(void)
     RUN_TEST(test_for_each_count);
     RUN_TEST(test_for_each_single);
     RUN_TEST(test_for_each_safe_remove_middle);
-    RUN_TEST(test_for_each_safe_remove_self);
     RUN_TEST(test_for_each_safe_empty_after_pop);
     RUN_TEST(test_for_each_safe_pop_all);
     RUN_TEST(test_null_checks);

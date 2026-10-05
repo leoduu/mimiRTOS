@@ -54,23 +54,26 @@ void mimi_enable_irq(void);
 /* ---------------------------------------------------------------------- */
 extern int  schedule_called;
 void mimi_schedule(void);
-void mimi_isr_schedule_check(void);
 void mimi_sched_detach(mimi_tcb *t);
-void mimi_sched_join(mimi_tcb *t, mimi_bool s);
+void mimi_sched_join(mimi_tcb *t);
 
 /* ---------------------------------------------------------------------- */
-/*  Critical section / spinlock (x86: no real interrupts)                  */
+/*  Critical section (x86: no real interrupts)                             */
 /* ---------------------------------------------------------------------- */
 uint32_t mimi_enter_critical(void);
 void     mimi_exit_critical(uint32_t level);
-uint32_t mimi_spin_lock(mimi_spinlock *lock);
-void     mimi_spin_unlock(mimi_spinlock *lock, uint32_t level);
 
 /* ---------------------------------------------------------------------- */
 /*  Thread stubs — used by mutex / mqueue / sem tests                     */
 /* ---------------------------------------------------------------------- */
 extern mimi_tcb  tA, tB, tC;
-extern mimi_tcb *test_curr_thread;
+
+/* sched.h 的 mimi_thread_current() 是 always_inline, 单测里 ipc.c 展开后
+ * 直接引用内核符号 mimi_curr_thread (定义在 kernel/src/sched.c), 而 sched.c
+ * 不参与单测构建, 所以由 test_mocks.c 提供该符号的定义。
+ * 测试代码沿用 test_curr_thread 这个名字。 */
+extern mimi_tcb *mimi_curr_thread;
+#define test_curr_thread mimi_curr_thread
 extern int       sleep_called;
 extern int       wakeup_called;
 extern mimi_tcb *sleep_thread;
@@ -81,9 +84,10 @@ extern uint8_t   raised_to;
 
 void test_ipc_reset_all(void);
 
-mimi_err mimi_thread_suspend_to_list(mimi_tcb *thread, uint32_t timeout,
-                                   mimi_list *list);
-mimi_err mimi_thread_wakeup_from_ipc(mimi_tcb *thread);
+/* mirrors kernel/include/thread.h */
+mimi_err mimi_thread_block(mimi_tcb *thread, uint32_t timeout,
+                           mimi_list *list);
+mimi_err mimi_thread_resume(mimi_tcb *thread);
 void     mimi_thread_prio_raise(mimi_tcb *t, uint8_t p);
 void     mimi_thread_prio_recover(mimi_tcb *t);
 

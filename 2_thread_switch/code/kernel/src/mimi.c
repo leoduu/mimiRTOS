@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "thread.h"
 #include "board.h"
-#include "cpuport.h"
+#include "mimi_port.h"
 #include "export.h"
 
 void mimi_component_init(void)
@@ -30,10 +30,11 @@ void mimi_main(void)
 
     mimi_board_init();
     mimi_cpu_init();
+
     mimi_component_init();
 
-    mimi_tcb *first = mimi_thread_first();
-    mimi_first_switch((void *)&first->sp);
+    mimi_thread_first_switch();
+    mimi_enable_irq();
 }
 
 mimi_weak void mimi_assert_failed(const char *x, const char *file, unsigned int line)

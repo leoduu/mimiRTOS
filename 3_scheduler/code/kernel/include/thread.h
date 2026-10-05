@@ -1,6 +1,7 @@
 #ifndef __MIMI_THREAD__
 #define __MIMI_THREAD__
 
+#include <stddef.h>
 #include "list.h"
 #include "timer.h"
 #include "conf.h"
@@ -17,19 +18,18 @@ typedef enum {
 typedef struct {
     mimi_node   node;
 
-    mimi_thread_status status;
-
     void        *sp;
     uint32_t    stack_size;
-
     void        *entry;
     void        *param;
-
     char        name[THREAD_NAME_LEN];
     uint8_t     priority;
+
+    mimi_err    error;
+    mimi_thread_status status;
+
     uint32_t    tick_slice;
     uint32_t    remaining_tick;
-
     mimi_timer  timer;
 } mimi_tcb;
 
@@ -45,7 +45,7 @@ mimi_err mimi_thread_init(mimi_tcb   *thread,
 void mimi_thread_yield(void);
 mimi_err mimi_thread_delay(uint32_t delay);
 mimi_err mimi_thread_suspend(mimi_tcb *thread, uint32_t timeout);
-mimi_err mimi_thread_wakeup(mimi_tcb *thread);
+mimi_err mimi_thread_resume(mimi_tcb *thread);
 mimi_err mimi_thread_kill(mimi_tcb *thread);
 
 #endif // __MIMI_THREAD__

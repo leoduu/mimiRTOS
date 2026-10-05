@@ -1,7 +1,7 @@
 
 
 #include "thread.h"
-#include "cpuport.h"
+#include "mimi_port.h"
 #include "sched.h"
 #include "conf.h"
 #include "mimi.h"
@@ -22,7 +22,6 @@ void mimi_sys_tick_handler(void)
     mimi_atom_add(&sys_tick, 1);
     mimi_timer_check();
     mimi_sched_tick_increase(1);
-    mimi_isr_schedule_check();
 }
 
 void mimi_component_init(void)
@@ -49,12 +48,8 @@ void mimi_main(void)
 
     mimi_log_init();
     mimi_board_init();
-
     mimi_cpu_init(OS_TICK_PER_SECOND, mimi_sys_tick_handler);
     mimi_sched_init();
-
-    mimi_log_start();
-    mimi_console_init();
 
     mimi_component_init();
 
@@ -70,23 +65,4 @@ mimi_weak void mimi_assert_failed(const char *x, const char *file, uint32_t line
     // TODO: more debug info
 
     while(1) {}
-}
-
-/* -------------------------------------------------------------------------- */
-/*  spin lock                                                                 */
-/* -------------------------------------------------------------------------- */
-uint32_t mimi_spin_lock(mimi_spinlock *lock)
-{
-    uint32_t level = mimi_enter_critical();
-    lock->lock = MIMI_TRUE;
-    return level;
-}
-
-void mimi_spin_unlock(mimi_spinlock *lock, uint32_t level)
-{
-    if (lock->lock == MIMI_FALSE) {
-        return;
-    }
-    lock->lock = MIMI_FALSE;
-    mimi_exit_critical(level);
 }

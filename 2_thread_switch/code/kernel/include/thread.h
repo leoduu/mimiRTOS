@@ -20,7 +20,7 @@ mimi_err mimi_thread_init(mimi_tcb   *thread,
                             void        (*entry)(void* param),
                             void        *param);
 
-mimi_tcb *mimi_thread_first(void);
+void mimi_thread_first_switch(void);
 void mimi_thread_yield(void);
 
 #endif // __MIMI_THREAD__

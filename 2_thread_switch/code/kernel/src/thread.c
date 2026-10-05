@@ -1,9 +1,12 @@
 
 #include "thread.h"
-#include "cpuport.h"
+#include "mimi.h"
 #include "list.h"
+#include "mimi_port.h"
 
 mimi_list mimi_thread_list;
+mimi_tcb *mimi_curr_thread = NULL;
+mimi_tcb *mimi_next_thread = NULL;
 
 mimi_err mimi_thread_init(mimi_tcb   *thread,
                             void        *stack,
@@ -25,9 +28,10 @@ mimi_err mimi_thread_init(mimi_tcb   *thread,
     return MIMI_EOK;
 }
 
-mimi_tcb *mimi_thread_first(void)
+void mimi_thread_first_switch(void)
 {
-    return container_of_tcb(mimi_thread_list.head);
+    mimi_next_thread = container_of_tcb(mimi_thread_list.head);
+    mimi_context_first_switch();
 }
 
 void mimi_thread_yield(void)
@@ -39,5 +43,6 @@ void mimi_thread_yield(void)
     if (from_tcb == to_tcb) {
         return;
     }
-    mimi_context_switch((void *)&from_tcb->sp, (void *)&to_tcb->sp);
+    mimi_next_thread = to_tcb;
+    mimi_context_switch();
 }

@@ -6,17 +6,12 @@
 #include "list.h"
 #include "thread.h"
 
-
 /* -------------------------------------------------------------------------- */
 /*  semaphore                                                                 */
 /* -------------------------------------------------------------------------- */
 typedef struct {
-    mimi_node node;
-    mimi_spinlock lock;
-
     uint32_t max_cnt;
     uint32_t cnt;
-
     mimi_list suspend_list;
 } mimi_sem;
 
@@ -29,13 +24,8 @@ mimi_err mimi_sem_release(mimi_sem *sem);
 /*  mutex                                                                     */
 /* -------------------------------------------------------------------------- */
 typedef struct {
-    mimi_node node;
-    mimi_spinlock lock;
-
-    uint8_t lock_cnt;
-    uint8_t highest_prio;
-
-    mimi_tcb *thread;
+    uint8_t lock_nest;
+    mimi_tcb *owner;
     mimi_list suspend_list;
 } mimi_mutex;
 
@@ -48,22 +38,26 @@ mimi_err mimi_mutex_unlock(mimi_mutex *mtx);
 /*  message queue                                                             */
 /* -------------------------------------------------------------------------- */
 typedef struct {
-    mimi_node node;
-    mimi_spinlock lock;
+    uint32_t msg_size;
+    uint32_t capacity;
+    uint32_t cnt;
 
-    uint16_t msg_size;
-    uint16_t capacity;
-    uint16_t cnt;
-
-    uint16_t prod;
-    uint16_t cons;
-    void *buffer;
+    unsigned long *prod;
+    unsigned long *cons;
+    unsigned long *buffer;
+    unsigned long *end;
 
     mimi_list recv_suspend_list;
 } mimi_mqueue;
 
+typedef enum {
+    MIMI_MQ_FULL_DROP,
+    MIMI_MQ_FULL_OVERWRITE,
+    MIMI_MQ_URGENT,
+} mimi_mqueue_flag;
+
 mimi_err mimi_mqueue_init(mimi_mqueue *mqueue, uint32_t msg_size, void *buffer, uint32_t buffer_size);
-mimi_err mimi_mqueue_send(mimi_mqueue *mqueue, const void *buffer);
+mimi_err mimi_mqueue_send(mimi_mqueue *mqueue, const void *buffer, mimi_mqueue_flag flag);
 mimi_err mimi_mqueue_recv(mimi_mqueue *mqueue, void *buffer, uint32_t timeout);
 
 #endif  // __MIMI_IPC__

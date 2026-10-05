@@ -1,0 +1,11 @@
+# 统一行尾，根治 Syncthing 换行符冲突（CRLF/LF 混用会被当作内容修改）
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false

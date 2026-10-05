@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<svg width="838" height="380" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+ <!-- 标题 -->
+ <!-- 左侧层级标签列分隔 -->
+ <!-- 层分隔虚线 -->
+ <!-- ======================== 层级标签 ======================== -->
+ <!-- ======================== 应用层 ======================== -->
+ <!-- ======================== 组件和服务层 ======================== -->
+ <!-- API 条 -->
+ <!-- ======================== 内核层 ======================== -->
+ <!-- 内核主块 -->
+ <!-- utils 块 -->
+ <!-- ports 条 -->
+ <!-- ======================== 硬件层 ======================== -->
+ <g class="layer" display="inline">
+  <title>Layer 1</title>
+  <g id="svg_26" transform="matrix(1 0 0 1 -12.4358 -188.106)">
+   <rect x="12.6" y="188.72" width="837.52" height="365.18" fill="#ffffff" id="svg_1"/>
+   <rect x="480.82" y="475.41" width="336.34" height="54" rx="3" fill="#f4f4f4" stroke="#d0d0d0" id="svg_3">qemu</rect>
+   <rect x="130.43" y="475.41" width="336.34" height="54" rx="3" fill="#f4f4f4" stroke="#d0d0d0" id="svg_2">qemu</rect>
+   <line x1="108.91" y1="222.88" x2="108.91" y2="529.02" stroke="#dcdcdc" stroke-dasharray="5,4" id="svg_4"/>
+   <g text-anchor="middle" id="svg_9">
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_12" transform="matrix(1 0 0 1 2.84091 36.9318)">组件和服务</text>
+    <text x="62" y="258" font-size="10" fill="#9a9a9a" id="svg_14" transform="matrix(1 0 0 1 2.87455 17.0455)">services</text>
+    <text x="62" y="426" font-size="14" font-weight="bold" fill="#333333" id="svg_15" transform="matrix(1 0 0 1 2.86727 -63.0682)">内核层</text>
+    <text x="62" y="444" font-size="10" fill="#9a9a9a" id="svg_16" transform="matrix(1 0 0 1 2.87273 -63.6364)">kernel</text>
+    <text x="62" y="575" font-size="14" font-weight="bold" fill="#333333" id="svg_17" transform="matrix(1 0 0 1 2.86545 -78.4091)">硬件层</text>
+    <text x="62" y="593" font-size="10" fill="#9a9a9a" id="svg_18" transform="matrix(1 0 0 1 2.72909 -80.1136)">hardware</text>
+   </g>
+   <rect x="130" y="337.18" width="536.02" height="100" rx="5" fill="#eaf6ec" stroke="#a9d3b0" id="svg_51"/>
+   <text x="146" y="368" font-size="13" font-weight="bold" fill="#2d5a37" id="svg_52" transform="matrix(1 0 0 1 0 -6.81818)">kernel</text>
+   <g id="svg_53" transform="matrix(1 0 0 1 0 -4.88519)">
+    <rect x="247.9" y="382" width="90" height="45" rx="4" fill="#ffffff" stroke="#c2e3c8" id="svg_105"/>
+    <text x="372" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_58" transform="matrix(1 0 0 1 -79.1002 2.84182)">信号量</text>
+    <rect x="144" y="382" width="90" height="45" rx="4" fill="#ffffff" stroke="#c2e3c8" id="svg_54"/>
+    <text x="216" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_55" transform="matrix(1 0 0 1 -27.245 2.84182)">调度器</text>
+    <rect x="351.8" y="382" width="90" height="45" rx="4" fill="#ffffff" stroke="#c2e3c8" id="svg_107"/>
+    <text x="372" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_106" transform="matrix(1 0 0 1 24.799 2.85)">互斥锁</text>
+    <rect x="455.7" y="382" width="90" height="45" rx="4" fill="#ffffff" stroke="#c2e3c8" id="svg_109"/>
+    <text x="372" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_108" transform="matrix(1 0 0 1 128.692 2.83636)">消息队列</text>
+    <rect x="559.59" y="382" width="90" height="45" rx="4" fill="#ffffff" stroke="#c2e3c8" id="svg_111"/>
+    <text x="684" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_64" transform="matrix(1 0 0 1 -79.6559 2.83545)">软件定时器</text>
+   </g>
+   <g id="svg_43" transform="matrix(1 0 0 1 -0.72 0)">
+    <rect x="130.72" y="226.28" width="120" height="68" rx="4" fill="#fdf1e7" stroke="#e6cdb8" id="svg_47"/>
+    <text x="146" y="284" font-size="10" fill="#6b7a8a" id="svg_38" transform="matrix(1 0 0 1 17.0473 -5.94818)">异步log服务</text>
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_95" transform="matrix(1 0 0 1 102.722 29.4859)">日志服务</text>
+    <rect x="265.3" y="226.28" width="120" height="68" rx="4" fill="#fdf1e7" stroke="#e6cdb8" id="svg_35"/>
+    <text x="375" y="270" font-size="10" fill="#6b7a8a" id="svg_41" transform="matrix(1 0 0 1 -84.8527 8.05455)">命令注册与匹配</text>
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_99" transform="matrix(1 0 0 1 243.803 29.4846)">控制台</text>
+    <rect x="399.86" y="226.28" width="120" height="68" rx="4" fill="#fdf1e7" stroke="#e6cdb8" id="svg_39"/>
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_98" transform="matrix(1 0 0 1 371.868 29.4846)">单元测试</text>
+    <text x="146" y="284" font-size="10" fill="#6b7a8a" id="svg_101" transform="matrix(1 0 0 1 288.846 -6.51456)">Unity 框架</text>
+    <rect x="534.43" y="226.27" width="161.48" height="68" rx="4" fill="#fdf1e7" stroke="#e6cdb8" id="svg_45"/>
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_97" transform="matrix(1 0 0 1 514.182 29.4764)">性能基准测试</text>
+    <text x="146" y="284" font-size="10" fill="#6b7a8a" id="svg_100" transform="matrix(1 0 0 1 400.102 -5.95182)">Thread-Metric · RTOSBench</text>
+    <rect x="711.05" y="226.27" width="110.91" height="68" rx="4" fill="#fdf1e7" stroke="#e6cdb8" id="svg_46"/>
+    <text x="62" y="222" font-size="13" font-weight="bold" fill="#333333" id="svg_96" transform="matrix(1 0 0 1 669.553 29.4773)">Examples</text>
+   </g>
+   <line x1="477.05" y1="-26.8" x2="477.05" y2="661.59" stroke="#dcdcdc" stroke-dasharray="5,4" id="svg_102" transform="rotate(90 477.045 317.393)"/>
+   <line x1="475.91" y1="112.97" x2="475.91" y2="803.63" stroke="#dcdcdc" stroke-dasharray="5,4" id="svg_103" transform="rotate(90 475.911 458.298)"/>
+   <rect x="685.8" y="337.81" width="136.16" height="100" rx="5" fill="#eef4fb" stroke="#bcd2ea" id="svg_127"/>
+   <text x="800" y="368" font-size="12" font-weight="bold" fill="#2c4a6b" id="svg_126" transform="matrix(1 0 0 1 -104.595 -7.95564)">utils</text>
+   <rect x="695.82" y="368.11" width="116.11" height="25" rx="3" fill="#ffffff" stroke="#cddceb" id="svg_125"/>
+   <text x="906" y="396" font-size="11" fill="#41505f" text-anchor="middle" id="svg_124" transform="matrix(1 0 0 1 -152.219 -11.1288)">list</text>
+   <rect x="696.1" y="400.68" width="115.55" height="25" rx="3" fill="#ffffff" stroke="#cddceb" id="svg_130"/>
+   <text x="906" y="396" font-size="11" fill="#41505f" text-anchor="middle" id="svg_129" transform="matrix(1 0 0 1 -152.328 21.4484)">ringbuffer</text>
+   <text x="372" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_136" transform="matrix(1 0 0 1 -211.311 101.308)">bsp</text>
+   <text x="372" y="406" font-size="12" font-weight="600" fill="#253040" text-anchor="middle" id="svg_137" transform="matrix(1 0 0 1 144.955 101.314)">arch</text>
+   <use id="svg_150" href="#svg_149" transform="matrix(7.35632 0 0 7.35632 0 0)"/>
+   <rect x="189.21" y="489.91" width="135.36" height="25" rx="3" fill="#ffffff" stroke="#d0d0d0" id="svg_11"/>
+   <text x="906" y="396" font-size="11" fill="#41505f" text-anchor="middle" id="svg_10" transform="matrix(1 0 0 1 -649.108 110.818)">nucleo-l452</text>
+   <rect x="550.08" y="489.91" width="254.62" height="25" rx="3" fill="#ffffff" stroke="#d0d0d0" id="svg_19"/>
+   <text x="906" y="396" font-size="11" fill="#41505f" text-anchor="middle" id="svg_13" transform="matrix(1 0 0 1 -228.299 110.821)">ARM Cortex-M</text>
+   <rect x="338.9" y="489.91" width="106.79" height="25" rx="3" fill="#ffffff" stroke="#d0d0d0" id="svg_22">qemu</rect>
+   <text x="906" y="396" font-size="11" fill="#41505f" text-anchor="middle" id="svg_21" transform="matrix(1 0 0 1 -513.711 110.816)">qemu</text>
+  </g>
+ </g>
+</svg>
