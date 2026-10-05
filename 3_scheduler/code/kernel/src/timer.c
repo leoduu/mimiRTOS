@@ -118,11 +118,10 @@ mimi_err mimi_timer_detach(mimi_timer *timer)
 
     uint32_t level = mimi_enter_critical();
 
-    if (timer->status == MIMI_TIMER_RUNNING) {
+    if (timer->status != MIMI_TIMER_STOP) {
         mimi_list_remove(&mimi_timer_list, &timer->node);
         timer->status = MIMI_TIMER_STOP;
     }
-    timer->stop_tick = 0;
 
     mimi_exit_critical(level);
     return MIMI_EOK;
@@ -130,35 +129,34 @@ mimi_err mimi_timer_detach(mimi_timer *timer)
 
 void mimi_timer_check(void)
 {
-    uint32_t level = mimi_enter_critical();
-
-    if (mimi_list_empty(&mimi_timer_list)) {
-        mimi_exit_critical(level);
-        return;
-    }
-
     mimi_timer *timer;
     mimi_node *node;
-    mimi_node *tmp;
-    mimi_list *list = &mimi_timer_list;
 
-    mimi_list_for_each_safe_start(list, node, tmp) {
+    while (1) {
+        uint32_t level = mimi_enter_critical();
+
+        node = mimi_list_head(&mimi_timer_list);
+        if (node == NULL) {
+            mimi_exit_critical(level);
+            return;
+        }
 
         timer = container_of_timer(node);
         if (timer->timeout_tick > mimi_sys_tick()) {
-            break;
+            mimi_exit_critical(level);
+            return;
         }
 
-        // timeout
-        mimi_list_remove(list, node);
-        timer->status = MIMI_TIMER_TIMEROUT;
-        timer->handler(timer);
+        mimi_list_remove(&mimi_timer_list, node);
         if (timer->flag & MIMI_TIMER_PERIODIC) {
             timer->status = MIMI_TIMER_RUNNING;
             timer->timeout_tick = mimi_sys_tick() + timer->timeout;
             mimi_timer_join(timer);
+        } else {
+            timer->status = MIMI_TIMER_STOP;
         }
-    } mimi_list_for_each_safe_end(list, node, tmp);
 
-    mimi_exit_critical(level);
+        mimi_exit_critical(level);
+        timer->handler(timer);
+    }
 }

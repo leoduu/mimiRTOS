@@ -10,7 +10,7 @@
 #define THREAD_NAME_LEN             16
 
 #define IDLE_THREAD_PRIORITY        (THREAD_PRIORITY_MAX - 1)
-#define IDLE_THREAD_TICK_SLICE      5
+#define IDLE_THREAD_TICK_SLICE      10
 #define IDLE_STACK_SIZE             2048
 
 /* -------------------------------------------------------------------------- */
@@ -27,7 +27,9 @@
 /* -------------------------------------------------------------------------- */
 /*  service                                                                   */
 /* -------------------------------------------------------------------------- */
-#define MIMI_DEBUG_ASSERT           1
+#ifndef MIMI_DEBUG_ASSERT
+#define MIMI_DEBUG_ASSERT           0
+#endif
 
 /* -------------------------------------------------------------------------- */
 /*  component                                                                 */

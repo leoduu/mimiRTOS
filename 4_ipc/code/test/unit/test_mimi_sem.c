@@ -110,7 +110,11 @@ static void test_sem_take_nowait_when_zero(void)
     TEST_ASSERT_EQUAL_INT(0, sleep_called);
 }
 
-static void test_sem_take_timeout_timer_fires(void)
+/* 唤醒原因不再看 timer.status, 而是超时回调写进 thread->error。
+ * 到期后线程必须同时满足: error == ETIMEOUT、回到 READY、从等待队列摘掉、
+ * 定时器归位。少任何一条, IPC 就会要么永久睡眠要么误判超时。
+ */
+static void test_sem_take_timeout_wakes_with_error(void)
 {
     mimi_sem sem;
     mimi_sem_init(&sem, 5, 0);
@@ -118,10 +122,16 @@ static void test_sem_take_timeout_timer_fires(void)
     mimi_sem_take(&sem, 100);
     TEST_ASSERT_EQUAL_INT(1, sleep_called);
     TEST_ASSERT_EQUAL_INT(MIMI_THREAD_SUSPEND, tA.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_RUNNING, tA.timer.status);
 
     fake_tick = 101;
     mimi_timer_check();
-    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_TIMEROUT, tA.timer.status);
+
+    TEST_ASSERT_EQUAL_INT(MIMI_ETIMEOUT, tA.error);
+    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_READY, tA.status);
+    TEST_ASSERT_TRUE(mimi_list_empty(&sem.suspend_list));
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, tA.timer.status);
+    TEST_ASSERT_TRUE(mimi_list_empty(&mimi_timer_list));
 }
 
 /* Regression: a thread woken before its timeout must have the sleep timer
@@ -141,6 +151,9 @@ static void test_sem_wakeup_clears_timeout_timer(void)
 
     TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, tA.timer.status);
     TEST_ASSERT_TRUE(mimi_list_empty(&mimi_timer_list));
+
+    /* 被 release 唤醒不算失败: error 必须是 EOK, 不能留着上一次的 ETIMEOUT */
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, tA.error);
 
     /* the timer can be armed again */
     TEST_ASSERT_EQUAL_INT(MIMI_EOK,
@@ -204,26 +217,49 @@ static void test_sem_null_guards(void)
     TEST_EXPECT_ASSERT(mimi_sem_release(NULL));
 }
 
-static void test_sem_multi_waiter_fifo(void)
+/* 回归: 超时过一次之后再阻塞, error 必须复位。
+ * 以前唤醒原因看 timer.status, 到期后没人清, 第二次 FOREVER 阻塞会被误判成
+ * 又超时了一次(线程其实是被正常唤醒的)。
+ */
+static void test_sem_error_reset_on_next_block(void)
 {
     mimi_sem sem;
-    mimi_sem_init(&sem, 1, 0);  /* binary sem — only one taker succeeds */
+    mimi_sem_init(&sem, 5, 0);
 
+    mimi_sem_take(&sem, 100);
+    fake_tick = 101;
+    mimi_timer_check();
+    TEST_ASSERT_EQUAL_INT(MIMI_ETIMEOUT, tA.error);
+
+    /* 再等一次: 这次不带超时, error 必须回到 EOK */
     mimi_sem_take(&sem, MIMI_TIMEOUT_FOREVER);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, tA.error);
+    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_SUSPEND, tA.status);
+}
+
+/* 等待队列按优先级排序: tA(5) 先等, 但 tB(3) 优先级更高, release 要先给 tB。
+ * 如果退化成 FIFO, 高优先级线程会被排在后面的低优先级线程挡住。
+ */
+static void test_sem_waiters_ordered_by_priority(void)
+{
+    mimi_sem sem;
+    mimi_sem_init(&sem, 1, 0);
+
+    mimi_sem_take(&sem, MIMI_TIMEOUT_FOREVER);      /* tA(5) 先等 */
     test_curr_thread = &tB;
-    /* tB attempt: with binary sem, second taker blocks */
-    mimi_sem_take(&sem, MIMI_TIMEOUT_FOREVER);
+    mimi_sem_take(&sem, MIMI_TIMEOUT_FOREVER);      /* tB(3) 后等, 但优先级高 */
 
     test_curr_thread = &tC;
     wakeup_called = 0;
 
-    /* release wakes the first waiter (tA) which consumes the token */
     mimi_sem_release(&sem);
     TEST_ASSERT_EQUAL_INT(1, wakeup_called);
-    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_READY, tA.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_READY, tB.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_SUSPEND, tA.status);
 }
 
-static void test_sem_max_cnt_zero(void)
+/* 二值信号量(max_cnt = 1): 拿空之后再拿必须失败 */
+static void test_sem_binary_sem(void)
 {
     mimi_sem bin;
     mimi_sem_init(&bin, 1, 1);
@@ -255,7 +291,8 @@ int run_sem_tests(void)
     reset_all(); RUN_TEST(test_sem_release_at_max);
 
     reset_all(); RUN_TEST(test_sem_take_nowait_when_zero);
-    reset_all(); RUN_TEST(test_sem_take_timeout_timer_fires);
+    reset_all(); RUN_TEST(test_sem_take_timeout_wakes_with_error);
+    reset_all(); RUN_TEST(test_sem_error_reset_on_next_block);
     reset_all(); RUN_TEST(test_sem_wakeup_clears_timeout_timer);
     reset_all(); RUN_TEST(test_sem_take_forever_sets_up_block);
     reset_all(); RUN_TEST(test_sem_release_wakes_waiter);
@@ -263,8 +300,8 @@ int run_sem_tests(void)
 
     reset_all(); RUN_TEST(test_sem_take_null);
     reset_all(); RUN_TEST(test_sem_null_guards);
-    reset_all(); RUN_TEST(test_sem_multi_waiter_fifo);
-    reset_all(); RUN_TEST(test_sem_max_cnt_zero);
+    reset_all(); RUN_TEST(test_sem_waiters_ordered_by_priority);
+    reset_all(); RUN_TEST(test_sem_binary_sem);
 
     return UNITY_END();
 }

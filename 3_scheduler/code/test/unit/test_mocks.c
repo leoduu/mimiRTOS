@@ -20,7 +20,6 @@ void mimi_assert_failed(const char *x, const char *file, uint32_t line)
         longjmp(assert_jmp_buf, 1);
     }
 
-    /* 没人承接: 这是测试代码自己的 bug, 不能让进程卡死在 while(1) 里 */
     fprintf(stderr, "\n[unexpected assert] (%s) at %s:%u\n", x, file, line);
     fflush(stderr);
     abort();

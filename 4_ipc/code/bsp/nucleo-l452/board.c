@@ -89,6 +89,7 @@ log_output_func mimi_board_get_log_output_func(void)
 /* -------------------------------------------------------------------------- */
 /*  console input (DMA)                                                       */
 /* -------------------------------------------------------------------------- */
+#if MIMI_CONSOLE
 
 size_t console_input(uint8_t *buffer, size_t max_len)
 {
@@ -103,3 +104,4 @@ console_input_func mimi_board_get_console_input_func(void)
 {
     return console_input;
 }
+#endif // MIMI_CONSOLE

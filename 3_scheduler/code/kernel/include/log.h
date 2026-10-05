@@ -13,9 +13,6 @@
 typedef void (*log_output_func)(const uint8_t *buffer, size_t len);
 
 void mimi_log_printf(char level, const char *fmt, ...);
-void mimi_log_init(void);
-void mimi_log_start(void);
-void mimi_log_set_output(log_output_func func);
 
 #if (MIMI_LOG_LEVEL >= MIMI_LOG_LEVEL_VERBOSE)
 #define MIMI_LOG_V(fmt, ...)    mimi_log_printf('V', fmt, ##__VA_ARGS__)

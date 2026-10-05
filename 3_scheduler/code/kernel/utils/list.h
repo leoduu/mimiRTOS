@@ -16,29 +16,45 @@ typedef struct {
     mimi_node *head;
 } mimi_list;
 
-mimi_err mimi_list_push_back(mimi_list *list, mimi_node *node);
-mimi_err mimi_list_push_front(mimi_list *list, mimi_node *node);
-mimi_err mimi_list_insert_back(mimi_list *list, mimi_node *node, mimi_node *ins);
-mimi_err mimi_list_insert_front(mimi_list *list, mimi_node *node, mimi_node *ins);
-mimi_err mimi_list_pop_front(mimi_list *list);
-mimi_err mimi_list_pop_back(mimi_list *list);
-mimi_err mimi_list_remove(mimi_list *list, mimi_node *node);
-mimi_err mimi_list_rotate(mimi_list *list);
-static inline void mimi_list_init(mimi_list *list) {
+void mimi_list_push_back(mimi_list *list, mimi_node *node);
+void mimi_list_push_front(mimi_list *list, mimi_node *node);
+void mimi_list_insert_back(mimi_list *list, mimi_node *node, mimi_node *ins);
+void mimi_list_insert_front(mimi_list *list, mimi_node *node, mimi_node *ins);
+mimi_node *mimi_list_pop_front(mimi_list *list);
+mimi_node *mimi_list_pop_back(mimi_list *list);
+void mimi_list_remove(mimi_list *list, mimi_node *node);
+mimi_inline void mimi_list_init(mimi_list *list)
+{
+    mimi_assert(list != NULL);
     list->head = NULL;
 }
-static inline mimi_bool mimi_list_empty(mimi_list *list) {
+mimi_inline mimi_bool mimi_list_empty(mimi_list *list)
+{
+    mimi_assert(list != NULL);
     return list->head == NULL;
 }
-static inline mimi_node *mimi_list_head(mimi_list *list) {
+mimi_inline mimi_node *mimi_list_head(mimi_list *list)
+{
+    mimi_assert(list != NULL);
     return list->head;
 }
-static inline void mimi_node_reset(mimi_node *node) {
+mimi_inline void mimi_node_reset(mimi_node *node)
+{
+    mimi_assert(node != NULL);
     node->prev = NULL;
     node->next = NULL;
 }
-static inline mimi_bool mimi_node_isolated(mimi_node *node) {
+mimi_inline mimi_bool mimi_node_isolated(mimi_node *node)
+{
+    mimi_assert(node != NULL);
     return node->prev == NULL && node->next == NULL;
+}
+mimi_inline void mimi_list_rotate(mimi_list *list)
+{
+    mimi_assert(list != NULL);
+    mimi_assert(list->head != NULL);
+    list->head = list->head->next;
+    return;
 }
 
 #define mimi_list_for_each_start(list, node)                    \

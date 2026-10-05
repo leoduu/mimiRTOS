@@ -14,8 +14,8 @@
 /* -------------------------------------------------------------------------- */
 /*  log                                                                       */
 /* -------------------------------------------------------------------------- */
-#define LOG_THREAD_PRIORITY     5
-#define LOG_THREAD_TIME_SLICE   5
+#define LOG_THREAD_PRIORITY     (THREAD_PRIORITY_MAX - 3)
+#define LOG_THREAD_TIME_SLICE   THREAD_TIME_SLICE_DEFAULT
 #define LOG_THREAD_STACK_SIZE   2048
 #define LOG_TEMP_BUFFER_SIZE    256
 
@@ -36,7 +36,7 @@ void mimi_log_print_raw(const char *fmt, ...)
     va_start(args, fmt);
     uint8_t print_buffer[LOG_TEMP_BUFFER_SIZE];
 
-    vsnprintf((char *)(&print_buffer), LOG_TEMP_BUFFER_SIZE, fmt, args);
+    vsnprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE, fmt, args);
     va_end(args);
 
     int len = strlen((const char *)print_buffer);
@@ -124,7 +124,7 @@ void mimi_log_init(void)
     mimi_log_output_func = mimi_board_get_log_output_func();
 }
 
-void mimi_log_start(void)
+void mimi_log_run(void)
 {
     mimi_thread_init(&log_thread, "log", LOG_THREAD_PRIORITY,
                     LOG_THREAD_TIME_SLICE, log_thread_stack,
@@ -142,8 +142,8 @@ void mimi_log_set_output(log_output_func func)
 /* -------------------------------------------------------------------------- */
 #if MIMI_CONSOLE
 
-#define CONSOLE_THREAD_PRIORITY     5
-#define CONSOLE_THREAD_TIME_SLICE   5
+#define CONSOLE_THREAD_PRIORITY     (THREAD_PRIORITY_MAX - 2)
+#define CONSOLE_THREAD_TIME_SLICE   THREAD_TIME_SLICE_DEFAULT
 #define CONSOLE_THREAD_STACK_SIZE   2048
 #define CONSOLE_TEMP_BUFFER_SIZE    256
 
@@ -155,13 +155,15 @@ console_input_func mimi_console_input_func = NULL;
 extern const size_t __mimi_cmd_start;
 extern const size_t __mimi_cmd_end;
 
+#define mimi_cmd_for_each                                                   \
+    volatile const struct mimi_cmd_desc *desc;                              \
+    for (desc = (struct mimi_cmd_desc *)&__mimi_cmd_start;                  \
+         desc < (struct mimi_cmd_desc *)&__mimi_cmd_end; desc++)            \
+
 int mimi_cmd_list(void)
 {
-    volatile const struct mimi_cmd_desc *desc;
-
     MIMI_LOG("<console> ");
-    for (desc = (struct mimi_cmd_desc *)&__mimi_cmd_start;
-         desc < (struct mimi_cmd_desc *)&__mimi_cmd_end; desc++) {
+    mimi_cmd_for_each {
         MIMI_LOG("%s ", desc->cmd);
     }
     MIMI_LOG("\r\n");
@@ -171,8 +173,6 @@ MIMI_CMD_EXPORT(cmd, mimi_cmd_list);
 
 int mimi_console_input(const char* cmd, int len)
 {
-    volatile const struct mimi_cmd_desc *desc;
-
     while (len > 0) {
         if (cmd[len-1] == '\r' || cmd[len-1] == '\n' || cmd[len-1] == ' ') {
             len--;
@@ -181,8 +181,7 @@ int mimi_console_input(const char* cmd, int len)
         }
     }
 
-    for (desc = (struct mimi_cmd_desc *)&__mimi_cmd_start;
-         desc < (struct mimi_cmd_desc *)&__mimi_cmd_end; desc++) {
+    mimi_cmd_for_each {
         if (strncmp((const char*)cmd, desc->cmd, len) == 0) {
             return desc->fn();
         }
@@ -193,6 +192,17 @@ int mimi_console_input(const char* cmd, int len)
 
 void mimi_console_thread_entry(void *param)
 {
+    MIMI_LOG("<console> cmd list: ");
+    int i = 0;
+    mimi_cmd_for_each {
+        if (++i == 5) {
+            i = 0;
+            MIMI_LOG("\r\n                    ");
+        }
+        MIMI_LOG("%s  ", desc->cmd);
+    }
+    MIMI_LOG("\r\n");
+
     while (1) {
         if (mimi_console_input_func != NULL) {
             uint16_t len = mimi_console_input_func(console_buffer, CONSOLE_TEMP_BUFFER_SIZE);

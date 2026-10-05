@@ -64,7 +64,7 @@ static void update_prod_tail(mimi_ringbuffer *ring, uint32_t old_head,
 }
 
 mimi_err mimi_ringbuffer_init(mimi_ringbuffer *ring, uint32_t capacity,
-                              void* buffer)
+                              void *buffer)
 {
     mimi_assert(ring != NULL);
     mimi_assert(buffer != NULL);

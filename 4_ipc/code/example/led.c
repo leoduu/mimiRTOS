@@ -10,8 +10,6 @@
 
 int led_on(void)
 {
-    mimi_assert(1 == 0);
-
     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
     MIMI_LOG_I("LED ON!\n");
     return MIMI_EOK;

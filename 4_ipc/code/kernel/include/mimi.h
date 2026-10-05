@@ -14,6 +14,7 @@
 #define mimi_used               __attribute__((used))
 #define mimi_unreachable        __builtin_unreachable()
 #define mimi_weak               __attribute__((weak))
+#define mimi_inline             static inline __attribute__((always_inline))
 
 #define mimi_atom_add(ptr, v)       __atomic_add_fetch(ptr, v, __ATOMIC_SEQ_CST)
 #define mimi_atom_sub(ptr, v)       __atomic_sub_fetch(ptr, v, __ATOMIC_SEQ_CST)
@@ -32,7 +33,6 @@
 
 #endif  /* GNU GCC Compiler */
 
-#define mimi_unused(x)                  ((void)(x))
 #define mimi_min(x, y)                  ((x) < (y) ? (x) : (y))
 #define mimi_max(x, y)                  ((x) > (y) ? (x) : (y))
 #define mimi_align_down(size, align)    ((size) & ~((align) - 1))
@@ -42,7 +42,7 @@ void mimi_assert_failed(const char *x, const char *file, uint32_t line);
 #define mimi_assert(x)                                                      \
     if (!(x)) { mimi_assert_failed(#x, __FILE__, __LINE__); }
 #else
-#define mimi_assert(x)  mimi_unused(x)
+#define mimi_assert(x)  ((void)0U)
 #endif
 
 typedef enum {
@@ -67,15 +67,5 @@ enum {
 };
 
 uint32_t mimi_sys_tick(void);
-
-/* -------------------------------------------------------------------------- */
-/*  spin lock                                                                 */
-/* -------------------------------------------------------------------------- */
-typedef struct {
-    uint32_t lock;
-} mimi_spinlock;
-
-uint32_t mimi_spin_lock(mimi_spinlock *lock);
-void mimi_spin_unlock(mimi_spinlock *lock, uint32_t level);
 
 #endif  // __MIMI_COMMON__

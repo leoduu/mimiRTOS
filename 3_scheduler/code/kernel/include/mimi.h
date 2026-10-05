@@ -14,6 +14,7 @@
 #define mimi_used               __attribute__((used))
 #define mimi_unreachable        __builtin_unreachable()
 #define mimi_weak               __attribute__((weak))
+#define mimi_inline             static inline __attribute__((always_inline))
 #define mimi_atom_add(ptr, v)   __atomic_add_fetch(ptr, v, __ATOMIC_SEQ_CST)
 
 #define static_assert(expr, ...) __static_assert(expr, ##__VA_ARGS__, #expr)
@@ -29,7 +30,6 @@
 
 #endif  /* GNU GCC Compiler */
 
-#define mimi_unused(x)                  ((void)(x))
 #define mimi_min(x, y)                  ((x) < (y) ? (x) : (y))
 #define mimi_max(x, y)                  ((x) > (y) ? (x) : (y))
 #define mimi_align_down(size, align)    ((size) & ~((align) - 1))
@@ -39,9 +39,8 @@ void mimi_assert_failed(const char *x, const char *file, uint32_t line);
 #define mimi_assert(x)                                                      \
     if (!(x)) { mimi_assert_failed(#x, __FILE__, __LINE__); }
 #else
-#define mimi_assert(x)  mimi_unused(x)
+#define mimi_assert(x)  ((void)0U)
 #endif
-
 
 typedef enum {
     MIMI_EOK        = 0,

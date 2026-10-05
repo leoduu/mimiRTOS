@@ -20,7 +20,6 @@ void mimi_assert_failed(const char *x, const char *file, uint32_t line)
         longjmp(assert_jmp_buf, 1);
     }
 
-    /* 没人承接: 这是测试代码自己的 bug, 不能让进程卡死在 while(1) 里 */
     fprintf(stderr, "\n[unexpected assert] (%s) at %s:%u\n", x, file, line);
     fflush(stderr);
     abort();
@@ -42,15 +41,20 @@ void mimi_disable_irq(void) { }
 void mimi_enable_irq(void)  { }
 
 /* ====================================================================== */
+/*  Log stub (ipc.c 走 MIMI_LOG_E 打错误分支)                             */
+/* ====================================================================== */
+
+void mimi_log_printf(char level, const char *fmt, ...) { (void)level; (void)fmt; }
+
+/* ====================================================================== */
 /*  Scheduler stubs                                                       */
 /* ====================================================================== */
 
 int schedule_called;
 
 void mimi_schedule(void)          { schedule_called++; }
-void mimi_isr_schedule_check(void)      { }
 void mimi_sched_detach(mimi_tcb *t)  { (void)t; }
-void mimi_sched_join(mimi_tcb *t, mimi_bool s) { (void)t; (void)s; }
+void mimi_sched_join(mimi_tcb *t)    { (void)t; }
 
 /* ====================================================================== */
 /*  Spinlock / critical section (x86 test: no real interrupts)            */
@@ -59,9 +63,6 @@ void mimi_sched_join(mimi_tcb *t, mimi_bool s) { (void)t; (void)s; }
 uint32_t mimi_enter_critical(void)           { return 0; }
 void     mimi_exit_critical(uint32_t level)  { (void)level; }
 
-uint32_t mimi_spin_lock(mimi_spinlock *lock)   { (void)lock; return 0; }
-void     mimi_spin_unlock(mimi_spinlock *lock, uint32_t level) { (void)lock; (void)level; }
-
 /* ====================================================================== */
 /*  Thread stubs — shared by mutex and mqueue tests                       */
 /* ====================================================================== */
@@ -69,7 +70,15 @@ void     mimi_spin_unlock(mimi_spinlock *lock, uint32_t level) { (void)lock; (vo
 mimi_tcb  tA, tB, tC;
 mimi_tcb *test_curr_thread;
 
-static void test_thread_timer_handler(mimi_timer *timer) { (void)timer; }
+static void test_thread_timer_handler(mimi_timer *timer)
+{
+    mimi_tcb *thread = container_of_tcb_by_timer(timer);
+    if (thread->status == MIMI_THREAD_SUSPEND) {
+        thread->error = MIMI_ETIMEOUT;
+        mimi_thread_resume(thread);
+        mimi_schedule();
+    }
+}
 
 void test_ipc_reset_all(void)
 {
@@ -124,47 +133,102 @@ int       prio_raise_cnt;
 int       prio_recover_cnt;
 uint8_t   raised_to;
 
-mimi_err mimi_thread_suspend_to_list(mimi_tcb *thread, uint32_t timeout,
-                                   mimi_list *list)
+/* 镜像 thread.c 的 insert_suspend_list_by_prio: 插到第一个优先级比自己低的等待者前面 */
+static void insert_suspend_list_by_prio(mimi_list *list, mimi_tcb *thread)
 {
-    /* keep in sync with kernel/src/thread.c */
-    if (thread == NULL || list == NULL)
-        return MIMI_EPARAMETER;
-    if (thread->status == MIMI_THREAD_DEAD || thread->status == MIMI_THREAD_SUSPEND)
-        return MIMI_ERESOURCE;
-    sleep_called  = 1;
-    sleep_thread  = thread;
-    sleep_list    = list;
-    thread->pending_list = list;
+    mimi_node *node, *tmp;
+    mimi_list_for_each_safe_start(list, node, tmp) {
+        mimi_tcb *temp = container_of_tcb(node);
+        if (temp->priority > thread->priority) {
+            mimi_list_insert_front(list, &temp->node, &thread->node);
+            break;
+        }
+    } mimi_list_for_each_safe_end(list, node, tmp);
+    if (mimi_node_isolated(&thread->node))
+        mimi_list_push_back(list, &thread->node);
+}
+
+mimi_err mimi_thread_block(mimi_tcb *thread, uint32_t timeout, mimi_list *list)
+{
+    mimi_assert(thread != NULL);
+    mimi_assert(list != NULL);
+
+    if (thread->status == MIMI_THREAD_SUSPEND)
+        return MIMI_ERROR;
+
+    sleep_called++;
+    sleep_thread = thread;
+    sleep_list   = list;
+
     thread->status = MIMI_THREAD_SUSPEND;
-    mimi_list_push_back(list, &thread->node);
+    thread->error = MIMI_EOK;
+    thread->suspend_list = list;
     if (timeout != MIMI_TIMEOUT_FOREVER)
         mimi_timer_start(&thread->timer, timeout, MIMI_TIMER_ONCE);
+
+    insert_suspend_list_by_prio(list, thread);
+
     return MIMI_EOK;
 }
 
-mimi_err mimi_thread_wakeup_from_ipc(mimi_tcb *thread)
+mimi_err mimi_thread_resume(mimi_tcb *thread)
 {
-    /* keep in sync with kernel/src/thread.c */
-    if (thread == NULL)
-        return MIMI_EPARAMETER;
+    mimi_assert(thread != NULL);
+
+    if (thread->status == MIMI_THREAD_READY)
+        return MIMI_EOK;
+
     wakeup_called++;
-    /* mirrors kernel/src/thread.c: the sleep timeout must be detached */
-    mimi_timer_detach(&thread->timer);
-    thread->pending_list = NULL;
     thread->status = MIMI_THREAD_READY;
+    if (thread->suspend_list != NULL) {
+        if (!mimi_node_isolated(&thread->node)) {
+            mimi_list_remove(thread->suspend_list, &thread->node);
+        }
+        thread->suspend_list = NULL;
+    }
+    mimi_timer_detach(&thread->timer);
+
     return MIMI_EOK;
 }
 
+/* thread.c 里这两个函数对 DEAD 线程什么都不做, 对 SUSPEND 线程还会重排等待队列。
+ * 替身必须一样, 否则优先级继承的测试测不出"改了优先级但队列顺序没跟着变"。
+ */
 void mimi_thread_prio_raise(mimi_tcb *t, uint8_t p)
 {
+    if (t->status == MIMI_THREAD_DEAD)
+        return;
+
+    /* 只抬不降。owner 可能同时被好几把锁继承, 无条件赋值会把别的锁抬上去的
+     * 优先级反手打回去。早退条件必须和 kernel/src/thread.c 的那份一致。 */
+    if (t->priority <= p)
+        return;
+
     prio_raise_cnt++;
     raised_to = p;
     t->priority = p;
+
+    if (t->status == MIMI_THREAD_SUSPEND && t->suspend_list != NULL) {
+        mimi_list_remove(t->suspend_list, &t->node);
+        insert_suspend_list_by_prio(t->suspend_list, t);
+    }
 }
 
 void mimi_thread_prio_recover(mimi_tcb *t)
 {
+    if (t->status == MIMI_THREAD_DEAD)
+        return;
+
+    /* 延迟恢复: 只要还持有别的 mutex, 继承来的优先级就不能降,
+     * 否则那把锁上的等待者会被饿着。*/
+    if (t->mtx_hold != 0)
+        return;
+
     prio_recover_cnt++;
     t->priority = t->origin_priority;
+
+    if (t->status == MIMI_THREAD_SUSPEND && t->suspend_list != NULL) {
+        mimi_list_remove(t->suspend_list, &t->node);
+        insert_suspend_list_by_prio(t->suspend_list, t);
+    }
 }

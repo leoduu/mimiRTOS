@@ -9,9 +9,11 @@ void mimi_sched_run(void);
 void mimi_sched_tick_increase(uint32_t tick);
 
 mimi_tcb *mimi_thread_current(void);
-void mimi_sched_join(mimi_tcb *thread, mimi_bool schedule);
+
+void mimi_sched_join(mimi_tcb *thread);
 void mimi_sched_detach(mimi_tcb *thread);
+
 void mimi_schedule(void);
-void mimi_isr_schedule_check(void);
+void mimi_schedule_rr(void);
 
 #endif  // __MIMI_SCHED__

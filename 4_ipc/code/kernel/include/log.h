@@ -14,8 +14,9 @@ typedef void (*log_output_func)(const uint8_t *buffer, size_t len);
 
 void mimi_log_printf(char level, const char *fmt, ...);
 void mimi_log_kprintf(const char *fmt, ...);
+void mimi_log_print_raw(const char *fmt, ...);
 void mimi_log_init(void);
-void mimi_log_start(void);
+void mimi_log_run(void);
 void mimi_log_set_output(log_output_func func);
 
 #define MIMI_LOG(fmt, ...)    mimi_log_print_raw(fmt, ##__VA_ARGS__)

@@ -26,9 +26,10 @@ static void fire_handler(mimi_timer *t)
 static void test_timer_init_basic(void)
 {
     mimi_timer t;
-    mimi_timer_init(&t, fire_handler);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_timer_init(&t, fire_handler));
 
     TEST_ASSERT_EQUAL_UINT32(0, t.timeout_tick);
+    TEST_ASSERT_EQUAL_UINT32(0, t.timeout);
     TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
     TEST_ASSERT_EQUAL_PTR(fire_handler, t.handler);
 }
@@ -138,6 +139,9 @@ static void test_timer_stop_already_stopped(void)
     TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_timer_stop(&t));
 }
 
+/* 一次性定时器到期后 status 变 STOP 并摘出链表, 不再有 TIMEROUT 这个中间态。
+ * 唤醒原因改由 thread->error 记录(见 test_mocks.c 的超时回调)。
+ */
 static void test_timer_stop_after_timeout(void)
 {
     mimi_timer t;
@@ -146,7 +150,7 @@ static void test_timer_stop_after_timeout(void)
     fake_tick = 0;
     mimi_timer_start(&t, 100, MIMI_TIMER_ONCE);
     fake_tick = 100;
-    mimi_timer_check();            /* status → MIMI_TIMER_TIMEROUT */
+    mimi_timer_check();            /* status → MIMI_TIMER_STOP */
 
     TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_timer_stop(&t));
 }
@@ -203,6 +207,10 @@ static void test_timer_resume_running(void)
     TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_timer_resume(&t));
 }
 
+/* 到期过的一次性定时器 status 是 STOP, 和"手动 stop 过"共用同一个状态,
+ * 所以 mimi_timer_resume() 会把它重新挂起来 —— 这是设计选择, 不是缺陷:
+ * 一次性/周期只由 flag 区分, status 只表示"在不在链表上"。
+ */
 static void test_timer_resume_after_timeout(void)
 {
     mimi_timer t;
@@ -213,7 +221,9 @@ static void test_timer_resume_after_timeout(void)
     fake_tick = 100;
     mimi_timer_check();
 
-    TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_timer_resume(&t));
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_timer_resume(&t));
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_RUNNING, t.status);
 }
 
 /* ====================================================================== */
@@ -226,7 +236,7 @@ static void test_timer_join_empty_list(void)
     mimi_timer_init(&t, fire_handler);
     t.timeout_tick = 100;
 
-    mimi_timer_join(&t);
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_timer_join(&t));
 
     TEST_ASSERT_EQUAL_PTR(&t.node, mimi_list_head(&mimi_timer_list));
     TEST_ASSERT_EQUAL_PTR(&t.node, t.node.next);     /* circular */
@@ -336,6 +346,43 @@ static void test_timer_join_same_timeout(void)
 }
 
 /* ====================================================================== */
+/*  timer_detach                                                          */
+/* ====================================================================== */
+
+/* detach 是线程被提前唤醒时清理超时定时器的入口: 必须真的从链表摘掉,
+ * 否则链表里留着一个已经不再被引用的栈上定时器。
+ */
+static void test_timer_detach_running(void)
+{
+    mimi_timer t;
+    mimi_timer_init(&t, fire_handler);
+
+    fake_tick = 0;
+    mimi_timer_start(&t, 100, MIMI_TIMER_ONCE);
+    TEST_ASSERT_FALSE(mimi_list_empty(&mimi_timer_list));
+
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_timer_detach(&t));
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
+    TEST_ASSERT_TRUE(mimi_list_empty(&mimi_timer_list));
+    TEST_ASSERT_TRUE(mimi_node_isolated(&t.node));
+
+    /* 摘掉之后定时器还能重新挂上 */
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK,
+        mimi_timer_start(&t, 50, MIMI_TIMER_ONCE));
+}
+
+/* 对已经停止的定时器 detach 是幂等的: 不能改状态, 更不能动链表 */
+static void test_timer_detach_stopped(void)
+{
+    mimi_timer t;
+    mimi_timer_init(&t, fire_handler);
+
+    TEST_ASSERT_EQUAL_INT(MIMI_EOK, mimi_timer_detach(&t));
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
+    TEST_ASSERT_TRUE(mimi_list_empty(&mimi_timer_list));
+}
+
+/* ====================================================================== */
 /*  timer_check                                                           */
 /* ====================================================================== */
 
@@ -374,8 +421,31 @@ static void test_timer_check_exact_expired(void)
     mimi_timer_check();
 
     TEST_ASSERT_EQUAL_INT(1, fire_count);
-    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_TIMEROUT, t.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
+    /* 一次性定时器到期后必须自己摘出链表 */
+    TEST_ASSERT_TRUE(mimi_list_empty(&mimi_timer_list));
 }
+
+/* 一次性定时器只能响一次: 到期摘链后, 后续 check 不能再触发 */
+static void test_timer_check_once_no_refire(void)
+{
+    mimi_timer t;
+    mimi_timer_init(&t, fire_handler);
+
+    fake_tick = 0;
+    mimi_timer_start(&t, 100, MIMI_TIMER_ONCE);
+
+    fire_count = 0;
+    fake_tick = 100;
+    mimi_timer_check();
+    TEST_ASSERT_EQUAL_INT(1, fire_count);
+
+    fake_tick = 300;
+    mimi_timer_check();
+    TEST_ASSERT_EQUAL_INT(1, fire_count);
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
+}
+
 static void test_timer_check_past_expired(void)
 {
     mimi_timer t;
@@ -389,7 +459,7 @@ static void test_timer_check_past_expired(void)
     mimi_timer_check();
 
     TEST_ASSERT_EQUAL_INT(1, fire_count);
-    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_TIMEROUT, t.status);
+    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_STOP, t.status);
 }
 
 static void test_timer_check_multi_partial(void)
@@ -471,22 +541,6 @@ static void test_timer_check_periodic_keeps_order(void)
     TEST_ASSERT_EQUAL_UINT32(200, head->timeout_tick);
 }
 
-static void test_timer_check_once_removed(void)
-{
-    mimi_timer t;
-    mimi_timer_init(&t, fire_handler);
-
-    fake_tick = 0;
-    mimi_timer_start(&t, 100, MIMI_TIMER_ONCE);
-
-    fake_tick = 100;
-    mimi_timer_check();
-    TEST_ASSERT_EQUAL_INT(MIMI_TIMER_TIMEROUT, t.status);
-
-    /* list should be empty now */
-    TEST_ASSERT_NULL(mimi_list_head(&mimi_timer_list));
-}
-
 /* ====================================================================== */
 /*  NULL guards                                                           */
 /* ====================================================================== */
@@ -549,13 +603,17 @@ int run_timer_tests(void)
     RUN_TEST(test_timer_join_in_middle);
     RUN_TEST(test_timer_join_same_timeout);
 
+    /* --- detach --- */
+    RUN_TEST(test_timer_detach_running);
+    RUN_TEST(test_timer_detach_stopped);
+
     /* --- check --- */
     RUN_TEST(test_timer_check_empty);
     RUN_TEST(test_timer_check_not_expired);
     RUN_TEST(test_timer_check_exact_expired);
     RUN_TEST(test_timer_check_past_expired);
+    RUN_TEST(test_timer_check_once_no_refire);
     RUN_TEST(test_timer_check_periodic_refire);
-    RUN_TEST(test_timer_check_once_removed);
 
     RUN_TEST(test_timer_check_multi_partial);
     RUN_TEST(test_timer_check_multi_all);

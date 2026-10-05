@@ -11,7 +11,6 @@ void mimi_disable_irq(void);
 uint32_t mimi_enter_critical(void);
 void mimi_exit_critical(uint32_t level);
 
-
 void mimi_context_switch_to(void *to);
 void mimi_context_switch(void *from, void *to);
 

@@ -8,6 +8,7 @@
 #define mimi_used               __attribute__((used))
 #define mimi_unreachable        __builtin_unreachable()
 #define mimi_weak               __attribute__((weak))
+#define mimi_inline             static inline __attribute__((always_inline))
 
 #define static_assert(expr, ...) __static_assert(expr, ##__VA_ARGS__, #expr)
 #define __static_assert(expr, msg, ...) _Static_assert(expr, msg)
@@ -22,7 +23,6 @@
 
 #endif  /* GNU GCC Compiler */
 
-#define mimi_unused(x)                  ((void)(x))
 #define mimi_min(x, y)                  ((x) < (y) ? (x) : (y))
 #define mimi_max(x, y)                  ((x) > (y) ? (x) : (y))
 #define mimi_align_down(size, align)    ((size) & ~((align) - 1))

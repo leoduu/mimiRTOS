@@ -5,7 +5,7 @@
 /* -------------------------------------------------------------------------- */
 /*  double linked list                                                        */
 /* -------------------------------------------------------------------------- */
-mimi_err mimi_list_push_back(mimi_list *list, mimi_node *node)
+void mimi_list_push_back(mimi_list *list, mimi_node *node)
 {
     mimi_assert(list != NULL);
     mimi_assert(node != NULL);
@@ -14,7 +14,7 @@ mimi_err mimi_list_push_back(mimi_list *list, mimi_node *node)
         list->head = node;
         node->next = node;
         node->prev = node;
-        return MIMI_EOK;
+        return;
     }
 
     mimi_node *head = list->head;
@@ -23,23 +23,21 @@ mimi_err mimi_list_push_back(mimi_list *list, mimi_node *node)
     head->prev->next = node;
     head->prev = node;
 
-    return MIMI_EOK;
+    return;
 }
 
-mimi_err mimi_list_push_front(mimi_list *list, mimi_node *node)
+void mimi_list_push_front(mimi_list *list, mimi_node *node)
 {
     mimi_assert(list != NULL);
     mimi_assert(node != NULL);
 
-    if (mimi_list_push_back(list, node) != MIMI_EOK) {
-        return MIMI_EPARAMETER;
-    }
+    mimi_list_push_back(list, node);
     list->head = node;
 
-    return MIMI_EOK;
+    return;
 }
 
-mimi_err mimi_list_insert_back(mimi_list *list, mimi_node *node, mimi_node *ins)
+void mimi_list_insert_back(mimi_list *list, mimi_node *node, mimi_node *ins)
 {
     mimi_assert(list != NULL);
     mimi_assert(node != NULL);
@@ -51,11 +49,10 @@ mimi_err mimi_list_insert_back(mimi_list *list, mimi_node *node, mimi_node *ins)
     node->next->prev = ins;
     node->next = ins;
 
-
-    return MIMI_EOK;
+    return;
 }
 
-mimi_err mimi_list_insert_front(mimi_list *list, mimi_node *node, mimi_node *ins)
+void mimi_list_insert_front(mimi_list *list, mimi_node *node, mimi_node *ins)
 {
     mimi_assert(list != NULL);
     mimi_assert(node != NULL);
@@ -71,11 +68,10 @@ mimi_err mimi_list_insert_front(mimi_list *list, mimi_node *node, mimi_node *ins
     node->prev->next = ins;
     node->prev = ins;
 
-
-    return MIMI_EOK;
+    return;
 }
 
-mimi_err mimi_list_pop_front(mimi_list *list)
+mimi_node *mimi_list_pop_front(mimi_list *list)
 {
     mimi_assert(list != NULL);
     mimi_assert(list->head != NULL);
@@ -90,10 +86,10 @@ mimi_err mimi_list_pop_front(mimi_list *list)
     }
     mimi_node_reset(node);
 
-    return MIMI_EOK;
+    return node;
 }
 
-mimi_err mimi_list_pop_back(mimi_list *list)
+mimi_node *mimi_list_pop_back(mimi_list *list)
 {
     mimi_assert(list != NULL);
     mimi_assert(list->head != NULL);
@@ -107,10 +103,10 @@ mimi_err mimi_list_pop_back(mimi_list *list)
     }
     mimi_node_reset(tail);
 
-    return MIMI_EOK;
+    return tail;
 }
 
-mimi_err mimi_list_remove(mimi_list *list, mimi_node *node)
+void mimi_list_remove(mimi_list *list, mimi_node *node)
 {
     mimi_assert(list != NULL);
     mimi_assert(list->head != NULL);
@@ -128,15 +124,5 @@ mimi_err mimi_list_remove(mimi_list *list, mimi_node *node)
     }
 
     mimi_node_reset(node);
-    return MIMI_EOK;
-}
-
-mimi_err mimi_list_rotate(mimi_list *list)
-{
-    mimi_assert(list != NULL);
-    mimi_assert(list->head != NULL);
-
-    list->head = list->head->next;
-
-    return MIMI_EOK;
+    return;
 }

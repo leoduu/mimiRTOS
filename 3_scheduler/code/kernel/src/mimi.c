@@ -22,7 +22,6 @@ void mimi_sys_tick_handler(void)
     mimi_atom_add(&sys_tick, 1);
     mimi_timer_check();
     mimi_sched_tick_increase(1);
-    mimi_isr_schedule_check();
 }
 
 void mimi_component_init(void)
@@ -53,7 +52,6 @@ void mimi_main(void)
     mimi_sched_init();
 
     mimi_component_init();
-
     mimi_sched_run();
 }
 

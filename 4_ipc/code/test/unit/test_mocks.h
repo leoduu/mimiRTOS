@@ -54,17 +54,14 @@ void mimi_enable_irq(void);
 /* ---------------------------------------------------------------------- */
 extern int  schedule_called;
 void mimi_schedule(void);
-void mimi_isr_schedule_check(void);
 void mimi_sched_detach(mimi_tcb *t);
-void mimi_sched_join(mimi_tcb *t, mimi_bool s);
+void mimi_sched_join(mimi_tcb *t);
 
 /* ---------------------------------------------------------------------- */
-/*  Critical section / spinlock (x86: no real interrupts)                  */
+/*  Critical section (x86: no real interrupts)                             */
 /* ---------------------------------------------------------------------- */
 uint32_t mimi_enter_critical(void);
 void     mimi_exit_critical(uint32_t level);
-uint32_t mimi_spin_lock(mimi_spinlock *lock);
-void     mimi_spin_unlock(mimi_spinlock *lock, uint32_t level);
 
 /* ---------------------------------------------------------------------- */
 /*  Thread stubs — used by mutex / mqueue / sem tests                     */
@@ -81,9 +78,10 @@ extern uint8_t   raised_to;
 
 void test_ipc_reset_all(void);
 
-mimi_err mimi_thread_suspend_to_list(mimi_tcb *thread, uint32_t timeout,
-                                   mimi_list *list);
-mimi_err mimi_thread_wakeup_from_ipc(mimi_tcb *thread);
+/* mirrors kernel/include/thread.h */
+mimi_err mimi_thread_block(mimi_tcb *thread, uint32_t timeout,
+                           mimi_list *list);
+mimi_err mimi_thread_resume(mimi_tcb *thread);
 void     mimi_thread_prio_raise(mimi_tcb *t, uint8_t p);
 void     mimi_thread_prio_recover(mimi_tcb *t);
 

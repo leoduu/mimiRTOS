@@ -34,11 +34,6 @@ void mimi_exit_critical(uint32_t level)
     __set_PRIMASK(level);
 }
 
-void SysTick_Handler(void)
-{
-    mimi_SysTick_Handler();
-}
-
 void mimi_context_switch_to(void *to)
 {
     from_thread_sp = NULL;
@@ -54,9 +49,6 @@ void mimi_context_switch_to(void *to)
 
     __set_MSP(*(uint32_t *)SCB->VTOR);
     __ISB();
-    __enable_irq();
-
-    mimi_unreachable;
 }
 
 void mimi_context_switch(void *from, void *to)
@@ -64,8 +56,6 @@ void mimi_context_switch(void *from, void *to)
     from_thread_sp = from;
     to_thread_sp = to;
     SCB->ICSR |= SCB_ICSR_PENDSVSET_Msk;        // trigger PendSV
-
-    __enable_irq();
 }
 
 mimi_err cortexm_systick_init(uint32_t ticksPerSec, void (*handler)(void))
@@ -111,4 +101,12 @@ void *mimi_stack_init(void *entry, void *param, void *exit, void *stack, uint32_
     stack_frame->psr = (uint32_t)0x01000000UL;  // set Thumb flag bit
 
     return (void *)stack_addr;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  interrupt handler                                                         */
+/* -------------------------------------------------------------------------- */
+void SysTick_Handler(void)
+{
+    mimi_SysTick_Handler();
 }
