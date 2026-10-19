@@ -17,7 +17,7 @@ extern mimi_list mimi_timer_list;
 /* ---------------------------------------------------------------------- */
 /* mimi_assert_failed() 是 weak 符号, 默认实现是 while(1){}, 一旦触发测试就
  * 永久卡住。这里给出测试替身: 记录触发次数并 longjmp 回调用点, 让断言可测。
- * 没有 TEST_EXPECT_ASSERT 包裹却触发了断言 = 测试代码自己的问题, 直接 abort。
+ * 未被 TEST_EXPECT_ASSERT 捕获的断言会直接 abort。
  */
 extern jmp_buf      assert_jmp_buf;
 extern int          assert_jmp_armed;
@@ -70,8 +70,7 @@ extern mimi_tcb  tA, tB, tC;
 
 /* sched.h 的 mimi_thread_current() 是 always_inline, 单测里 ipc.c 展开后
  * 直接引用内核符号 mimi_curr_thread (定义在 kernel/src/sched.c), 而 sched.c
- * 不参与单测构建, 所以由 test_mocks.c 提供该符号的定义。
- * 测试代码沿用 test_curr_thread 这个名字。 */
+ * 不参与单测构建, 所以由 test_mocks.c 提供该符号的定义。 */
 extern mimi_tcb *mimi_curr_thread;
 #define test_curr_thread mimi_curr_thread
 extern int       sleep_called;
@@ -81,6 +80,7 @@ extern mimi_list *sleep_list;
 extern int       prio_raise_cnt;
 extern int       prio_recover_cnt;
 extern uint8_t   raised_to;
+extern int       test_in_isr;   /* 1 = pretend the caller is in an ISR */
 
 void test_ipc_reset_all(void);
 

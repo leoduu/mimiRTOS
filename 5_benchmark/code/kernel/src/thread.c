@@ -1,11 +1,13 @@
 
 #include "thread.h"
 #include <string.h>
-#include <stdio.h>
 #include "mimi_port.h"
 #include "list.h"
 #include "log.h"
 #include "sched.h"
+#include "ipc.h"
+#include "mimi_string.h"
+
 
 void mimi_thread_timeout_handler_default(mimi_timer *timer)
 {
@@ -35,6 +37,13 @@ mimi_err mimi_thread_init(mimi_tcb   *thread,
     mimi_assert(stack != NULL);
     mimi_assert(entry != NULL);
     mimi_assert(stack_size > 0);
+    mimi_assert(!mimi_is_in_isr());
+
+    if (thread->sp != NULL && thread->status != MIMI_THREAD_DEAD) {
+        return MIMI_ERROR;
+    }
+    mimi_node_reset(&thread->node);
+    mimi_list_init(&thread->mtx_list);
 
     void *exit = exit_func ? exit_func : mimi_thread_exit_func;
     thread->error = MIMI_EOK;
@@ -48,10 +57,9 @@ mimi_err mimi_thread_init(mimi_tcb   *thread,
     thread->entry = entry;
     thread->param = param;
     thread->suspend_list = NULL;
-    thread->mtx_hold = 0;
     thread->mq_buffer = NULL;
     if (name == NULL) {
-        sprintf(thread->name, "0x%08X", (unsigned int)entry);
+        mimi_snprintf(thread->name, THREAD_NAME_LEN, "0x%X", (unsigned int)entry);
     } else {
         int len = mimi_min(THREAD_NAME_LEN - 1, strlen(name));
         memcpy(thread->name, name, len);
@@ -78,13 +86,16 @@ mimi_err mimi_thread_suspend(mimi_tcb *thread, uint32_t timeout)
     mimi_assert(thread != NULL);
 
     uint32_t level = mimi_enter_critical();
+    if (thread == mimi_thread_current()) {
+        mimi_assert((level == 0U) && !mimi_is_in_isr());
+    }
 
     if (unlikely(thread->status == MIMI_THREAD_SUSPEND)) {
         mimi_exit_critical(level);
         return MIMI_ERROR;
     }
 
-    MIMI_LOG_V("%s suspend %lu ms\n", thread->name, timeout);
+    MIMI_LOG_V("%s suspend %ld ms\n", thread->name, timeout);
 
     thread->status = MIMI_THREAD_SUSPEND;
     thread->error = MIMI_EOK;
@@ -128,7 +139,7 @@ mimi_err mimi_thread_block(mimi_tcb *thread, uint32_t timeout, mimi_list *list)
         return MIMI_ERROR;
     }
 
-    MIMI_LOG_V("%s block %lu ms\n", thread->name, timeout);
+    MIMI_LOG_V("%s block %ld ms\n", thread->name, timeout);
 
     thread->status = MIMI_THREAD_SUSPEND;
     thread->error = MIMI_EOK;
@@ -152,6 +163,10 @@ mimi_err mimi_thread_resume(mimi_tcb *thread)
 
     uint32_t level = mimi_enter_critical();
 
+    if (unlikely(thread->status == MIMI_THREAD_DEAD)) {
+        mimi_exit_critical(level);
+        return MIMI_ERROR;
+    }
     if (unlikely(thread->status == MIMI_THREAD_READY)) {
         mimi_exit_critical(level);
         return MIMI_EOK;
@@ -184,11 +199,13 @@ mimi_err mimi_thread_kill(mimi_tcb *thread)
         mimi_sched_detach(thread);
     }
     thread->status = MIMI_THREAD_DEAD;
+
     mimi_timer_detach(&thread->timer);
     if (thread->suspend_list != NULL) {
         mimi_list_remove(thread->suspend_list, &thread->node);
         thread->suspend_list = NULL;
     }
+    mimi_mutex_release_all(thread);
 
     MIMI_LOG_D("%s is dead\n", thread->name);
 

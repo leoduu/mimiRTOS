@@ -9,6 +9,7 @@
 #include "log.h"
 #include "board.h"
 #include "export.h"
+#include "mimi_string.h"
 
 static volatile uint32_t sys_tick = 0;
 
@@ -56,13 +57,32 @@ void mimi_main(void)
     mimi_sched_run();
 }
 
+#if MIMI_DEBUG_ASSERT
+
+mimi_weak void mimi_assert_output(const char *s, int len)
+{
+    (void)s;
+    (void)len;
+}
+
 mimi_weak void mimi_assert_failed(const char *x, const char *file, uint32_t line)
 {
+    char buf[128];
+    int len;
+
     mimi_disable_irq();
 
-    mimi_log_kprintf("(%s) assert failed at %s:%d !!!\n", x, file, line);
+    len = mimi_snprintf(buf, sizeof(buf),
+                        "(%s) assert failed at %s:%d !!!\n",
+                        x, file, (int)line);
+    if (len > 0) {
+        if (len >= (int)sizeof(buf)) {
+            len = (int)sizeof(buf) - 1;
+        }
+        mimi_assert_output(buf, (size_t)len);
+    }
 
-    // TODO: more debug info
-
-    while(1) {}
+    while (1) {}
 }
+
+#endif

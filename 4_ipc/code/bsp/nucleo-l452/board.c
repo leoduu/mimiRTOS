@@ -36,7 +36,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 }
 
 static uint8_t  rx_buf[DMA_RX_RECVIVE_BUFFER];
-static uint16_t rx_len;
+static volatile uint16_t rx_len;
 static mimi_sem rx_sem;
 
 void DMA1_Channel6_IRQHandler(void)
@@ -70,7 +70,9 @@ int mimi_board_init(void)
     mimi_sem_init(&dma_tx_sem, 1, 0);
     mimi_sem_init(&rx_sem, 1, 0);
 
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buf, sizeof(rx_buf));
+    if (HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buf, sizeof(rx_buf)) != HAL_OK) {
+        MIMI_LOG_E("uart rx start failed\r\n");
+    }
 
     MIMI_LOG_I("nucleo-l452 load\r\n");
     return MIMI_EOK;
@@ -94,6 +96,36 @@ log_output_func mimi_log_output_func(void)
     return log_output;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Assert output (polled, no scheduler / DMA / HAL state)            */
+/* ------------------------------------------------------------------ */
+void mimi_assert_output(const char *s, int len)
+{
+    USART_TypeDef *uart = huart2.Instance;
+    uint32_t spin;
+
+    if (uart == NULL) {
+        return;
+    }
+
+    /* Stop the log DMA from competing for TDR while we poll. */
+    uart->CR3 &= ~USART_CR3_DMAT;
+
+    for (size_t i = 0; i < len; i++) {
+        spin = 100000U;
+        while (!(uart->ISR & USART_ISR_TXE) && (--spin != 0U)) {
+        }
+        if (spin == 0U) {
+            return;
+        }
+        uart->TDR = (uint8_t)s[i];
+    }
+
+    spin = 100000U;
+    while (!(uart->ISR & USART_ISR_TC) && (--spin != 0U)) {
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 /*  console input (DMA)                                                       */
 /* -------------------------------------------------------------------------- */
@@ -103,9 +135,22 @@ log_output_func mimi_log_output_func(void)
 size_t console_input(uint8_t *buffer, size_t max_len)
 {
     mimi_sem_take(&rx_sem, MIMI_TIMEOUT_FOREVER);
-    size_t len = (rx_len < max_len) ? rx_len : max_len;
+
+    /* The RX DMA runs in circular mode: stop it before touching rx_buf,
+       otherwise it can overwrite bytes while we copy them.  A failure here
+       means reception was already stopped, which is safe for the copy. */
+    if (HAL_UART_AbortReceive(&huart2) != HAL_OK) {
+        MIMI_LOG_W("console rx stop failed\r\n");
+    }
+
+    size_t len = ((size_t)rx_len < max_len) ? (size_t)rx_len : max_len;
     memcpy(buffer, rx_buf, len);
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buf, sizeof(rx_buf));
+    rx_len = 0;
+
+    if (HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rx_buf, sizeof(rx_buf)) != HAL_OK) {
+        MIMI_LOG_E("console rx rearm failed\r\n");
+    }
+
     return len;
 }
 

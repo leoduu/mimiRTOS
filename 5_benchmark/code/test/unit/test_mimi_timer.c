@@ -207,8 +207,8 @@ static void test_timer_resume_running(void)
     TEST_ASSERT_EQUAL_INT(MIMI_ERROR, mimi_timer_resume(&t));
 }
 
-/* 到期过的一次性定时器 status 是 STOP, 和"手动 stop 过"共用同一个状态,
- * 所以 mimi_timer_resume() 会把它重新挂起来 —— 这是设计选择, 不是缺陷:
+/* 到期的一次性定时器 status 是 STOP, 和"手动 stop 过"共用同一个状态,
+ * 所以 mimi_timer_resume() 会把它重新挂起来:
  * 一次性/周期只由 flag 区分, status 只表示"在不在链表上"。
  */
 static void test_timer_resume_after_timeout(void)

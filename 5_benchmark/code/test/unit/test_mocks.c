@@ -52,6 +52,8 @@ void mimi_log_printf(char level, const char *fmt, ...) { (void)level; (void)fmt;
 /* ====================================================================== */
 
 int schedule_called;
+int test_in_isr;            /* set to 1 to pretend the caller is in an ISR */
+static uint32_t test_critical_nest;
 
 void mimi_schedule(void)          { schedule_called++; }
 void mimi_sched_detach(mimi_tcb *t)  { (void)t; }
@@ -61,11 +63,26 @@ void mimi_sched_join(mimi_tcb *t)    { (void)t; }
 /*  Spinlock / critical section (x86 test: no real interrupts)            */
 /* ====================================================================== */
 
-uint32_t mimi_enter_critical(void)           { return 0; }
-void     mimi_exit_critical(uint32_t level)  { (void)level; }
+uint32_t mimi_enter_critical(void)
+{
+    uint32_t level = test_critical_nest;
+
+    test_critical_nest++;
+    return level;
+}
+
+void mimi_exit_critical(uint32_t level)
+{
+    test_critical_nest = level;
+}
+
+mimi_bool mimi_is_in_isr(void)
+{
+    return test_in_isr ? MIMI_TRUE : MIMI_FALSE;
+}
 
 /* ====================================================================== */
-/*  Thread stubs — shared by mutex and mqueue tests                       */
+/*  Thread stubs — shared by the IPC tests                                */
 /* ====================================================================== */
 
 mimi_tcb  tA, tB, tC;
@@ -111,6 +128,11 @@ void test_ipc_reset_all(void)
     mimi_timer_init(&tA.timer, test_thread_timer_handler);
     mimi_timer_init(&tB.timer, test_thread_timer_handler);
     mimi_timer_init(&tC.timer, test_thread_timer_handler);
+    mimi_list_init(&tA.mtx_list);
+    mimi_list_init(&tB.mtx_list);
+    mimi_list_init(&tC.mtx_list);
+    test_critical_nest = 0;
+    test_in_isr = 0;
 
     /* tracking */
     sleep_called     = 0;
@@ -192,8 +214,8 @@ mimi_err mimi_thread_resume(mimi_tcb *thread)
     return MIMI_EOK;
 }
 
-/* thread.c 里这两个函数对 DEAD 线程什么都不做, 对 SUSPEND 线程还会重排等待队列。
- * 替身必须一样, 否则优先级继承的测试测不出"改了优先级但队列顺序没跟着变"。
+/* 与 thread.c 一致: 对 DEAD 线程不处理, 对 SUSPEND 线程重排等待队列,
+ * 这样优先级继承测试能同时检查优先级和队列顺序。
  */
 void mimi_thread_prio_raise(mimi_tcb *t, uint8_t p)
 {
@@ -201,7 +223,7 @@ void mimi_thread_prio_raise(mimi_tcb *t, uint8_t p)
         return;
 
     /* 只抬不降。owner 可能同时被好几把锁继承, 无条件赋值会把别的锁抬上去的
-     * 优先级反手打回去。早退条件必须和 kernel/src/thread.c 的那份一致。 */
+     * 优先级反手打回去。 */
     if (t->priority <= p)
         return;
 
@@ -222,7 +244,7 @@ void mimi_thread_prio_recover(mimi_tcb *t)
 
     /* 延迟恢复: 只要还持有别的 mutex, 继承来的优先级就不能降,
      * 否则那把锁上的等待者会被饿着。*/
-    if (t->mtx_hold != 0)
+    if (!mimi_list_empty(&t->mtx_list))
         return;
 
     prio_recover_cnt++;

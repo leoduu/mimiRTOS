@@ -1,14 +1,13 @@
 
 #include "log.h"
-#include <stdio.h>
 #include <stdarg.h>
-#include <string.h>
 #include "sched.h"
 #include "thread.h"
 #include "ringbuffer.h"
 #include "ipc.h"
 #include "export.h"
 #include "mimi_port.h"
+#include "mimi_string.h"
 
 /* -------------------------------------------------------------------------- */
 /*  log                                                                       */
@@ -31,66 +30,83 @@ log_output_func log_output_func_ptr = NULL;
 
 void mimi_log_print_raw(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
     uint8_t print_buffer[LOG_TEMP_BUFFER_SIZE];
+    va_list args;
+    int len;
 
-    vsnprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE, fmt, args);
+    va_start(args, fmt);
+    len = mimi_vsnprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE, fmt, args);
     va_end(args);
 
-    int len = strlen((const char *)print_buffer);
-    if (mimi_ringbuffer_write(&log_ringbuffer.ring, print_buffer, len) == MIMI_EOK) {
+    if (len == 0) {
+        return;
+    }
+    if (len >= LOG_TEMP_BUFFER_SIZE) {
+        len = LOG_TEMP_BUFFER_SIZE - 1;
+    }
+
+    if (mimi_ringbuffer_write(&log_ringbuffer.ring, print_buffer,
+                              (uint32_t)len) == MIMI_EOK) {
         mimi_sem_release(&log_sem);
     }
 }
 
 void mimi_log_printf(char level, const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
     uint8_t print_buffer[LOG_TEMP_BUFFER_SIZE];
+    va_list args;
+    const char *name;
+    int len;
 
     mimi_tcb *tcb = mimi_thread_current();
-    char *name;
     if (mimi_is_in_isr()) {
         name = "isr";
+    } else if (tcb == NULL) {
+        name = "main";
     } else {
-        if (tcb == NULL) {
-            name = "main";
-        } else {
-            name = tcb->name;
-        }
+        name = tcb->name;
     }
 
-    snprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE, "<%ld>[%c][%s]\t",
-             mimi_sys_tick(), level, name);
-    int len = strlen((const char *)print_buffer);
+    len = mimi_snprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE,
+                        "<%ld>[%c][%s]\t", (long)mimi_sys_tick(),
+                        (int)level, name);
+    if (len >= LOG_TEMP_BUFFER_SIZE) {
+        len = LOG_TEMP_BUFFER_SIZE - 1;
+    }
 
-    vsnprintf((char *)(&print_buffer[len]), LOG_TEMP_BUFFER_SIZE - len, fmt, args);
+    va_start(args, fmt);
+    len += mimi_vsnprintf((char *)print_buffer + len,
+                          LOG_TEMP_BUFFER_SIZE - (size_t)len, fmt, args);
     va_end(args);
 
-    len = strlen((const char *)print_buffer);
     if (len >= LOG_TEMP_BUFFER_SIZE) {
-        return;
+        len = LOG_TEMP_BUFFER_SIZE - 1;
     }
 
-    if (mimi_ringbuffer_write(&log_ringbuffer.ring, print_buffer, len) == MIMI_EOK) {
+    if (mimi_ringbuffer_write(&log_ringbuffer.ring, print_buffer,
+                              (uint32_t)len) == MIMI_EOK) {
         mimi_sem_release(&log_sem);
     }
 }
 
 void mimi_log_kprintf(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
     uint8_t print_buffer[LOG_TEMP_BUFFER_SIZE];
+    va_list args;
+    int len;
 
-    vsnprintf((char *)(print_buffer), LOG_TEMP_BUFFER_SIZE, fmt, args);
+    va_start(args, fmt);
+    len = mimi_vsnprintf((char *)print_buffer, LOG_TEMP_BUFFER_SIZE, fmt, args);
     va_end(args);
 
-    if (log_output_func_ptr != NULL) {
-        log_output_func_ptr(print_buffer, strlen((const char *)print_buffer));
+    if (len == 0 || log_output_func_ptr == NULL) {
+        return;
     }
+    if (len >= LOG_TEMP_BUFFER_SIZE) {
+        len = LOG_TEMP_BUFFER_SIZE - 1;
+    }
+
+    log_output_func_ptr(print_buffer, (size_t)len);
 }
 
 void mimi_log_thread_entry(void *param)

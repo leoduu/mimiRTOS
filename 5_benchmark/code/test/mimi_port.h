@@ -10,4 +10,7 @@ void mimi_disable_irq(void);
 uint32_t mimi_enter_critical(void);
 void mimi_exit_critical(uint32_t level);
 
+/* Tests can force ISR context with test_in_isr. */
+mimi_bool mimi_is_in_isr(void);
+
 #endif

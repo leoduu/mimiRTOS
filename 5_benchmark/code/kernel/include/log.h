@@ -2,18 +2,19 @@
 #define __MIMI_LOG__
 
 #include <stdint.h>
+#include <stddef.h>
 #include "mimi.h"
 #include "conf.h"
 
 /* -------------------------------------------------------------------------- */
 /*  log                                                                       */
 /* -------------------------------------------------------------------------- */
+typedef void (*log_output_func)(const uint8_t *buffer, size_t len);
+
 void mimi_log_printf(char level, const char *fmt, ...);
 void mimi_log_kprintf(const char *fmt, ...);
 void mimi_log_print_raw(const char *fmt, ...);
 void mimi_log_init(void);
-
-typedef void (*log_output_func)(const uint8_t *buffer, uint16_t len);
 log_output_func mimi_log_output_func(void);
 
 #define MIMI_LOG(fmt, ...)    mimi_log_print_raw(fmt, ##__VA_ARGS__)

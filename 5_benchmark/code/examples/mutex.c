@@ -23,7 +23,7 @@ void mutex_thread_entry(void *param)
     for (int i = 0; i < TEST_CNT; i++) {
         mimi_mutex_lock(&mtx, MIMI_TIMEOUT_FOREVER);
         shared_cnt++;
-        MIMI_LOG_I("\tcnt:%d\n", shared_cnt);
+        MIMI_LOG_I("\tcnt:%ld\n", shared_cnt);
         mimi_mutex_unlock(&mtx);
     }
 }

@@ -185,8 +185,6 @@ static void test_sem_release_wakes_waiter(void)
 
     TEST_ASSERT_EQUAL_INT(1, wakeup_called);
     TEST_ASSERT_EQUAL_INT(MIMI_THREAD_READY, tA.status);
-    /* cnt not checked: sync mock model cannot properly simulate
-     * the blocking resume path where release increments count. */
 }
 
 static void test_sem_release_no_waiters(void)
@@ -273,6 +271,49 @@ static void test_sem_binary_sem(void)
     TEST_ASSERT_EQUAL_UINT32(0, bin.cnt);
 }
 
+/* Critical section: a blocking take asserts. */
+static void test_sem_take_asserts_in_critical(void)
+{
+    mimi_sem sem;
+    mimi_sem_init(&sem, 1, 0);
+
+    uint32_t level = mimi_enter_critical();
+    TEST_EXPECT_ASSERT(mimi_sem_take(&sem, 100));
+    mimi_exit_critical(level);
+
+    TEST_ASSERT_EQUAL_INT(0, sleep_called);
+    TEST_ASSERT_EQUAL_UINT32(0, sem.cnt);
+}
+
+/* ISR context: same assertion, without a critical section */
+static void test_sem_take_asserts_in_isr(void)
+{
+    mimi_sem sem;
+    mimi_sem_init(&sem, 1, 0);
+    test_in_isr = 1;
+
+    TEST_EXPECT_ASSERT(mimi_sem_take(&sem, 100));
+    mimi_exit_critical(0);      /* the failed call left its level taken */
+
+    test_in_isr = 0;
+    TEST_ASSERT_EQUAL_INT(0, sleep_called);
+    TEST_ASSERT_EQUAL_UINT32(0, sem.cnt);
+}
+
+/* Even a non-blocking take from a critical section is rejected */
+static void test_sem_take_asserts_even_if_available(void)
+{
+    mimi_sem sem;
+    mimi_sem_init(&sem, 1, 1);
+
+    uint32_t level = mimi_enter_critical();
+    TEST_EXPECT_ASSERT(mimi_sem_take(&sem, MIMI_TIMEOUT_NOWAIT));
+    mimi_exit_critical(level);
+
+    TEST_ASSERT_EQUAL_INT(0, sleep_called);
+    TEST_ASSERT_EQUAL_UINT32(1, sem.cnt);      /* nothing was consumed */
+}
+
 /* ====================================================================== */
 /*  Test runner                                                            */
 /* ====================================================================== */
@@ -302,6 +343,9 @@ int run_sem_tests(void)
     reset_all(); RUN_TEST(test_sem_null_guards);
     reset_all(); RUN_TEST(test_sem_waiters_ordered_by_priority);
     reset_all(); RUN_TEST(test_sem_binary_sem);
+    reset_all(); RUN_TEST(test_sem_take_asserts_in_critical);
+    reset_all(); RUN_TEST(test_sem_take_asserts_in_isr);
+    reset_all(); RUN_TEST(test_sem_take_asserts_even_if_available);
 
     return UNITY_END();
 }

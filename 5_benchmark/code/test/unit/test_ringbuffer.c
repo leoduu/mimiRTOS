@@ -461,9 +461,7 @@ static void test_many_small_writes(void)
 /*                                                                    */
 /*  Uses real OS threads (Win32 CreateThread / pthread) to exercise    */
 /*  the lock-free CAS concurrency path.  Tests are guarded by          */
-/*  HAS_THREADS and require a native CI environment with thread        */
-/*  support.  Deterministic on single-core / low-contention setups;    */
-/*  CI should ensure consistent scheduling (e.g., pinned CPUs).       */
+/*  HAS_THREADS and run on a native host with thread support.          */
 /* ------------------------------------------------------------------ */
 
 #if HAS_THREADS

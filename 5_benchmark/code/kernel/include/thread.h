@@ -29,7 +29,7 @@ typedef struct {
     mimi_thread_status status;
 
     uint8_t     origin_priority;
-    uint8_t     mtx_hold;
+    mimi_list   mtx_list;       // mutexes currently owned by this thread
     uint32_t    tick_slice;
     uint32_t    remaining_tick;
 
@@ -37,6 +37,9 @@ typedef struct {
     void        *mq_buffer;     // Used for message queue zero copy
     mimi_timer  timer;
 } mimi_tcb;
+
+static_assert(offsetof(mimi_tcb, sp) == 8, "PendSV asm expects sp at offset 8");
+
 
 mimi_err mimi_thread_init(mimi_tcb   *thread,
                             const char  *name,

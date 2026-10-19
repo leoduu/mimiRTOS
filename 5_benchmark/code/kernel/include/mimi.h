@@ -44,6 +44,8 @@ void mimi_assert_failed(const char *x, const char *file, uint32_t line);
 #define mimi_assert(x)  ((void)0U)
 #endif
 
+void mimi_assert_output(const char *s, int len);
+
 typedef enum {
     MIMI_EOK        = 0,
     MIMI_ERROR      = -1,

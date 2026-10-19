@@ -24,6 +24,7 @@ mimi_err mimi_sem_release(mimi_sem *sem);
 /*  mutex                                                                     */
 /* -------------------------------------------------------------------------- */
 typedef struct {
+    mimi_node node;
     uint8_t lock_nest;
     mimi_tcb *owner;
     mimi_list suspend_list;
@@ -32,6 +33,7 @@ typedef struct {
 void mimi_mutex_init(mimi_mutex *mtx);
 mimi_err mimi_mutex_lock(mimi_mutex *mtx, uint32_t timeout);
 mimi_err mimi_mutex_unlock(mimi_mutex *mtx);
+void mimi_mutex_release_all(mimi_tcb *thread);
 
 
 /* -------------------------------------------------------------------------- */

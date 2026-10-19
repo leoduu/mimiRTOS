@@ -29,6 +29,8 @@ mimi_err mimi_sem_take(mimi_sem *sem, uint32_t timeout)
     mimi_err ret = MIMI_EOK;
     uint32_t level = mimi_enter_critical();
 
+    mimi_assert((level == 0U) && !mimi_is_in_isr());
+
     if (sem->cnt > 0) {
         sem->cnt--;
         goto _sem_take_exit;
@@ -66,17 +68,15 @@ mimi_err mimi_sem_release(mimi_sem *sem)
     uint32_t level = mimi_enter_critical();
 
     if (!mimi_list_empty(&sem->suspend_list)) {
-
-        mimi_tcb *thread = container_of_tcb(mimi_list_pop_front(&sem->suspend_list));
+        mimi_node *head = mimi_list_pop_front(&sem->suspend_list);
+        mimi_tcb *thread = container_of_tcb(head);
         mimi_thread_resume(thread);
 
-        mimi_exit_critical(level);
-        return MIMI_EOK;
-    }
-
-    sem->cnt++;
-    if (sem->cnt > sem->max_cnt) {
-        sem->cnt = sem->max_cnt;
+    } else {
+        sem->cnt++;
+        if (sem->cnt > sem->max_cnt) {
+            sem->cnt = sem->max_cnt;
+        }
     }
 
     mimi_exit_critical(level);
@@ -93,6 +93,7 @@ void mimi_mutex_init(mimi_mutex *mtx)
 
     mtx->lock_nest = 0;
     mtx->owner = NULL;
+    mimi_node_reset(&mtx->node);
     mimi_list_init(&mtx->suspend_list);
 }
 
@@ -104,10 +105,13 @@ mimi_err mimi_mutex_lock(mimi_mutex *mtx, uint32_t timeout)
     uint32_t level = mimi_enter_critical();
     mimi_tcb *curr = mimi_thread_current();
 
-    if (mtx->lock_nest == 0) {
+    mimi_assert(curr != NULL);
+    mimi_assert((level == 0U) && !mimi_is_in_isr());
+
+    if (mtx->lock_nest == 0 || mtx->owner == NULL) {
         mtx->lock_nest = 1;
         mtx->owner = curr;
-        curr->mtx_hold++;
+        mimi_list_push_back(&curr->mtx_list, &mtx->node);
         goto _mutex_lock_exit;
     }
     if (curr == mtx->owner) {
@@ -142,6 +146,24 @@ _mutex_lock_exit:
     return ret;
 }
 
+static void mimi_mutex_handoff(mimi_mutex *mtx)
+{
+    if (!mimi_list_empty(&mtx->suspend_list)) {
+        mimi_node *head = mimi_list_pop_front(&mtx->suspend_list);
+        mimi_tcb *thread = container_of_tcb(head);
+
+        mimi_assert(thread->status != MIMI_THREAD_DEAD);
+
+        mtx->lock_nest = 1;
+        mtx->owner = thread;
+        mimi_list_push_back(&thread->mtx_list, &mtx->node);
+        mimi_thread_resume(thread);
+    } else {
+        mtx->lock_nest = 0;
+        mtx->owner = NULL;
+    }
+}
+
 mimi_err mimi_mutex_unlock(mimi_mutex *mtx)
 {
     mimi_assert(mtx != NULL);
@@ -156,26 +178,37 @@ mimi_err mimi_mutex_unlock(mimi_mutex *mtx)
 
     mtx->lock_nest--;
     if (mtx->lock_nest == 0) {
-        if (--curr->mtx_hold == 0) {
+        mimi_list_remove(&curr->mtx_list, &mtx->node);
+
+        if (mimi_list_empty(&curr->mtx_list)) {
             mimi_thread_prio_recover(curr);
         }
-
-        if (!mimi_list_empty(&mtx->suspend_list)) {
-            mimi_tcb *thread = container_of_tcb(mimi_list_pop_front(&mtx->suspend_list));
-            mtx->lock_nest = 1;
-            mtx->owner = thread;
-            thread->mtx_hold++;
-            mimi_thread_resume(thread);
-
-            mimi_exit_critical(level);
-            return MIMI_EOK;
-        }
-
-        mtx->owner = NULL;
+        mimi_mutex_handoff(mtx);
     }
 
     mimi_exit_critical(level);
     return MIMI_EOK;
+}
+
+void mimi_mutex_release_all(mimi_tcb *thread)
+{
+    mimi_assert(thread != NULL);
+
+    mimi_node *node;
+    mimi_node *tmp;
+    uint32_t level = mimi_enter_critical();
+
+    mimi_list_for_each_safe_start(&thread->mtx_list, node, tmp) {
+        mimi_mutex *mtx = container_of(node, mimi_mutex, node);
+
+        mtx->lock_nest = 0;
+        mtx->owner = NULL;
+        mimi_list_remove(&thread->mtx_list, node);
+        mimi_mutex_handoff(mtx);
+
+    } mimi_list_for_each_safe_end(&thread->mtx_list, node, tmp);
+
+    mimi_exit_critical(level);
 }
 
 
@@ -228,7 +261,8 @@ mimi_err mimi_mqueue_send(mimi_mqueue *mq, const void *buffer, mimi_mqueue_flag 
     uint32_t level = mimi_enter_critical();
 
     if (!mimi_list_empty(&mq->recv_suspend_list)) {
-        mimi_tcb *thread = container_of_tcb(mimi_list_pop_front(&mq->recv_suspend_list));
+        mimi_node *head = mimi_list_pop_front(&mq->recv_suspend_list);
+        mimi_tcb *thread = container_of_tcb(head);
         mq_copy_words(thread->mq_buffer, buffer, mq->msg_size);
         thread->mq_buffer = NULL;
         mimi_thread_resume(thread);
@@ -277,6 +311,8 @@ mimi_err mimi_mqueue_recv(mimi_mqueue *mq, void *buffer, uint32_t timeout)
 
     mimi_err ret = MIMI_EOK;
     uint32_t level = mimi_enter_critical();
+
+    mimi_assert((level == 0U) && !mimi_is_in_isr());
 
     if (mq->cnt > 0) {
         mq_copy_words(buffer, mq->cons, mq->msg_size);

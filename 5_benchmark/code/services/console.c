@@ -42,7 +42,7 @@ int mimi_cmd_list(void)
 }
 MIMI_CMD_EXPORT(cmd, mimi_cmd_list);
 
-int mimi_console_input(const char* cmd, uint16_t len)
+int mimi_console_input(const char* cmd, int len)
 {
     while (len > 0) {
         if (cmd[len-1] == '\r' || cmd[len-1] == '\n' || cmd[len-1] == ' ') {
@@ -68,7 +68,7 @@ void mimi_console_thread_entry(void *param)
 
     while (1) {
         if (console_input_func_ptr != NULL) {
-            uint16_t len = console_input_func_ptr(console_buffer, CONSOLE_TEMP_BUFFER_SIZE);
+            int len = console_input_func_ptr(console_buffer, CONSOLE_TEMP_BUFFER_SIZE);
             mimi_console_input((const char*)console_buffer, len);
         } else {
             mimi_thread_delay(100);

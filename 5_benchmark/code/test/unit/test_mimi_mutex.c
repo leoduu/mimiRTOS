@@ -170,9 +170,6 @@ static void test_mutex_unlock_no_waiters(void)
 
 /* 解锁把锁交给等待者: 新 owner 必须是被唤醒的那个线程, 不是解锁的线程。
  * 记成解锁者的话, 等待者醒来后会以为自己拿到了锁, 而锁实际挂在别人名下。
- *
- * 同步 mock 能直接测这条: 带超时阻塞的 lock 在 mimi_thread_block() 之后就
- * 返回 curr->error 了, 不会自己把 owner 抢过去, 所以 mtx.owner 还停在 tA。
  */
 static void test_mutex_unlock_hands_over_to_waiter(void)
 {
@@ -349,6 +346,88 @@ static void test_mutex_wakeup_clears_timeout_timer(void)
 }
 
 /* ====================================================================== */
+/*  Group E: ISR safety / dead owner                                      */
+/* ====================================================================== */
+
+/* A blocking lock from a critical section asserts. */
+static void test_mutex_lock_asserts_in_critical(void)
+{
+    mimi_mutex mtx;
+    mimi_mutex_init(&mtx);
+
+    mimi_mutex_lock(&mtx, MIMI_TIMEOUT_NOWAIT);   /* tA owns */
+    test_curr_thread = &tB;
+
+    uint32_t level = mimi_enter_critical();
+    TEST_EXPECT_ASSERT(mimi_mutex_lock(&mtx, MIMI_TIMEOUT_FOREVER));
+    mimi_exit_critical(level);
+
+    TEST_ASSERT_EQUAL_INT(0, sleep_called);
+    TEST_ASSERT_EQUAL_PTR(&tA, mtx.owner);
+    TEST_ASSERT_EQUAL_UINT8(5, tA.priority);      /* no PI raise happened */
+}
+
+/* A dead owner hands its mutex to the highest-priority waiter. */
+static void test_mutex_release_all_hands_over(void)
+{
+    mimi_mutex mtx;
+    mimi_mutex_init(&mtx);
+
+    mimi_mutex_lock(&mtx, MIMI_TIMEOUT_NOWAIT);   /* tA owns */
+    test_curr_thread = &tB;
+    mimi_mutex_lock(&mtx, MIMI_TIMEOUT_FOREVER);  /* tB waits */
+    TEST_ASSERT_EQUAL_PTR(&tA, mtx.owner);
+
+    mimi_mutex_release_all(&tA);
+
+    TEST_ASSERT_EQUAL_PTR(&tB, mtx.owner);
+    TEST_ASSERT_EQUAL_UINT8(1, mtx.lock_nest);
+    TEST_ASSERT_TRUE(mimi_list_empty(&tA.mtx_list));
+    TEST_ASSERT_FALSE(mimi_list_empty(&tB.mtx_list));
+    TEST_ASSERT_EQUAL_INT(MIMI_THREAD_READY, tB.status);
+}
+
+/* Dropping every recursive level, with no waiter left. */
+static void test_mutex_release_all_no_waiter(void)
+{
+    mimi_mutex mtx;
+    mimi_mutex_init(&mtx);
+
+    mimi_mutex_lock(&mtx, MIMI_TIMEOUT_NOWAIT);
+    mimi_mutex_lock(&mtx, MIMI_TIMEOUT_NOWAIT);
+    TEST_ASSERT_EQUAL_UINT8(2, mtx.lock_nest);
+
+    mimi_mutex_release_all(&tA);
+
+    TEST_ASSERT_NULL(mtx.owner);
+    TEST_ASSERT_EQUAL_UINT8(0, mtx.lock_nest);
+    TEST_ASSERT_TRUE(mimi_list_empty(&tA.mtx_list));
+}
+
+/* Two mutexes in one thread's owned list: the iteration must unlink each node
+ * while moving it to the next owner without breaking the walk. */
+static void test_mutex_release_all_two_locks(void)
+{
+    mimi_mutex m1;
+    mimi_mutex m2;
+
+    mimi_mutex_init(&m1);
+    mimi_mutex_init(&m2);
+
+    mimi_mutex_lock(&m1, MIMI_TIMEOUT_NOWAIT);
+    mimi_mutex_lock(&m2, MIMI_TIMEOUT_NOWAIT);
+    TEST_ASSERT_FALSE(mimi_list_empty(&tA.mtx_list));
+
+    mimi_mutex_release_all(&tA);
+
+    TEST_ASSERT_NULL(m1.owner);
+    TEST_ASSERT_NULL(m2.owner);
+    TEST_ASSERT_EQUAL_UINT8(0, m1.lock_nest);
+    TEST_ASSERT_EQUAL_UINT8(0, m2.lock_nest);
+    TEST_ASSERT_TRUE(mimi_list_empty(&tA.mtx_list));
+}
+
+/* ====================================================================== */
 /*  Test runner                                                            */
 /* ====================================================================== */
 
@@ -381,6 +460,11 @@ int run_mutex_tests(void)
     reset_all(); RUN_TEST(test_mutex_lock_timeout_wakes_with_error);
     reset_all(); RUN_TEST(test_mutex_lock_block_failure_propagates);
     reset_all(); RUN_TEST(test_mutex_wakeup_clears_timeout_timer);
+
+    reset_all(); RUN_TEST(test_mutex_lock_asserts_in_critical);
+    reset_all(); RUN_TEST(test_mutex_release_all_hands_over);
+    reset_all(); RUN_TEST(test_mutex_release_all_no_waiter);
+    reset_all(); RUN_TEST(test_mutex_release_all_two_locks);
 
     return UNITY_END();
 }

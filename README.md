@@ -28,9 +28,9 @@
 | ---------------------- | --------------- | ----------- | ----------- |
 | Basic Processing       | 32479           | 32466       | 32478       |
 | Cooperative Scheduling | 2976089         | 2957402     | **3301383** |
-| Preemptive Scheduling  | 710736          | 1142987     | **1181168** |
-| Message Processing     | 913801          | **2006418** | 1920190     |
-| Sync Processing        | 1751598         | 3501924     | **3803479** |
+| Preemptive Scheduling  | 710736          | 1142987     | **1170286** |
+| Message Processing     | 913801          | **2006418** | 1920286     |
+| Sync Processing        | 1751598         | 3501924     | **3697788** |
 
 ---
 

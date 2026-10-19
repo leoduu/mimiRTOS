@@ -20,6 +20,7 @@ void tearDown(void) { }
 /* Declared in individual test files */
 extern int run_list_tests(void);
 extern int run_ringbuffer_tests(void);
+extern int run_string_tests(void);
 extern int run_timer_tests(void);
 extern int run_sem_tests(void);
 extern int run_mutex_tests(void);
@@ -39,6 +40,9 @@ int main(void)
 
     printf("\n--- ringbuffer tests ---\n");
     failures += run_ringbuffer_tests();
+
+    printf("\n--- string tests ---\n");
+    failures += run_string_tests();
 
     printf("\n--- timer tests ---\n");
     failures += run_timer_tests();

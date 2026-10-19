@@ -325,13 +325,7 @@ static void test_mq_recv_wakeup_on_send(void)
     TEST_ASSERT_TRUE(mimi_list_empty(&mq.recv_suspend_list));
 }
 
-/* 接收超时: 和 sem/mutex 一样, 原因记在 thread->error 上。
- *
- * 注意: mimi_mqueue_recv 里 "唤醒后清 curr->mq_buffer" 那几行是在
- * mimi_schedule() 之后才执行的, 同步 mock 没有真正的上下文切换, recv 早就
- * 返回了, 这段尾巴永远跑不到。所以这里只验能观测到的部分; mq_buffer 的
- * 清理由 test_mq_recv_wakeup_on_send 那条直投路径覆盖。
- */
+/* 接收超时: 和 sem/mutex 一样, 原因记在 thread->error 上。 */
 static void test_mq_recv_timeout(void)
 {
     mimi_mqueue mq;
@@ -416,6 +410,24 @@ static void test_mq_recv_null_buf(void)
     TEST_EXPECT_ASSERT(mimi_mqueue_recv(&mq, NULL, MIMI_TIMEOUT_NOWAIT));
 }
 
+/* ISR context: a blocking receive asserts and must not leave a stale
+ * mq_buffer behind. */
+static void test_mq_recv_asserts_in_isr(void)
+{
+    mimi_mqueue mq;
+    mq_init(&mq);
+
+    uint8_t rx[MQ_MSG_SIZE];
+    test_in_isr = 1;
+
+    TEST_EXPECT_ASSERT(mimi_mqueue_recv(&mq, rx, 100));
+    mimi_exit_critical(0);      /* the failed call left its level taken */
+
+    test_in_isr = 0;
+    TEST_ASSERT_EQUAL_INT(0, sleep_called);
+    TEST_ASSERT_NULL(tA.mq_buffer);
+}
+
 /* ====================================================================== */
 /*  Test runner                                                           */
 /* ====================================================================== */
@@ -448,6 +460,7 @@ int run_mq_tests(void)
     reset_all(); RUN_TEST(test_mq_send_null_mq);
     reset_all(); RUN_TEST(test_mq_recv_null_mq);
     reset_all(); RUN_TEST(test_mq_recv_null_buf);
+    reset_all(); RUN_TEST(test_mq_recv_asserts_in_isr);
 
     return UNITY_END();
 }
